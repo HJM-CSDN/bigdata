@@ -55,3 +55,7 @@ git update-index --no-assume-unchanged file
 
 拉取、上传免密码：
 git config --global credential.helper store
+
+
+Git 在IDEA中的使用:
+https://blog.csdn.net/jeffleo/article/details/56017644
