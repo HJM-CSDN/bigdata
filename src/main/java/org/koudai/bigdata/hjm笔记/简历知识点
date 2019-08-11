@@ -1,0 +1,352 @@
+北京口袋时尚科技有限公司
+北京市朝阳区酒仙桥路10号二层2011室（星科大厦B座）
+C轮融资
+500-2000人，现在还剩70人
+邮箱后缀：koudai.com
+    d.weidian.com
+    口袋购物和微店都是同一家公司旗下的APP，只是口袋购物面向的更多的是买家（跟微店买家版类似），
+    而微店则是面向卖家的，卖家用于实现销售管理的APP。
+7月份 1月份
+15k*14薪  21万/年
+
+口袋购物是一个移动互联网的弯道超车的故事。创业2年多，口袋购物目前170人左右，1500万注册用户，
+日活跃用户是几十万，每天400万到1000万的成交额.
+
+口袋购物是属于口袋时尚科技有限公司的，这个公司还有一个产品，也是明星产品，就是微店。如果用户有留心的话，
+口袋购物从去年开始的版本更新频率就下降了，而且没有大的突破，是因为资源都给了微店。做了几次大手笔的运营，
+比如￥3999的iPhone 6、￥1999的iPad mini 3等，其实都是为了在推广微店平台。
+
+数据量：
+    每天有效的数据200-300万
+    总量大概100-200G左右
+
+参考 1T 10节点 40cores 8-10分钟！！！
+
+集群：
+    60台服务器
+    我有8台，128G服务器，每个10T，64核
+
+DMP项目：
+    逆地址解析服务
+    设备经纬度、运营商id、设备类型、渠道分析、统一用户识别、数据标签、用户上下文标签
+
+项目介绍：
+    我们公司做的是电商这一块，现在人们的购买能力逐渐提升，越来越多的人喜欢在网上购买和挑选自己喜欢的商品，
+用户的各种购买，搜索等行为就给我们产生了海量的日志数据，从我们的商城建立以来，数据仓库中积累了大量的业务
+数据、日志数据以及埋点数据，要从这些数据中解读用户，充分挖掘数据中的价值，为我们的广告主提供精准的
+商品推送和优惠券的推送，构建用户画像就变得尤其重要。我们公司的购物人群精准画像平台的目的就是将我们的用户
+进行分群，并给用户打上各种标签，进而根据用户的购物消费习惯，消费偏好，供我们的广告主精准营销与广告推送。
+    我们的数据来源主要包括埋点数据和日志数据，这些数据记录了用户在我们的产品上的全部行为，比如用户搜索了
+某个关键词，点击了某个商品，收藏了那些物品等都会在日志数据中有相应记录。
+
+    互联网商品广告的投放中，我们做的是数据管理平台这一块。比如我们进入购物网站或app时，入屏广告，插屏广告
+等广告位的填充以前都是通过直接和广告商合作，从广告库直接拉取广告进行投放，但是这种方式的针对性不够高，广告
+的点击通过率也不高，因此我们决定采用市面上最流行的一种在线广告投放系统，借助有米DSP需求方平台进行广告的实时竞价
+来获得广告位的填充，但是要想将广告和用户获得精准的匹配就需要构建一个DMP平台，我们将大量的用户信息存储到我们的
+DMP平台中并进行标签化处理，提供精准的用户画像，DSP平台通过我们的DMP平台进行精准的用户推荐广告的匹配，然后对同等
+类型的广告进行实时竞价，最终竞价成功的广告通过AD Exchange广告交易平台返回给我们的广告位进行一个广告的投放。
+
+
+DSP需求方平台：帮助广告主进行精准广告投放的公司，通过RTB实时竞价平台和AD Exchange交互并投放广告
+广告主的广告放到DSP的数据库中，DSP中的广告投放引擎通过我们的DMP数据管理平台获取用户的标签数据，从而
+判断该投放哪些广告。
+
+对于DSP而言，他们需要的是一个利差。假设广告主愿意为每个点击支付一个价格，那么如果DSP能够通过利差
+带来更多的收益，DSP就能有收入，从而发展起来。可以简单的理解为，DSP就是一个流量贩子，但不是DSP先买
+流量，而是广告主先需要给定一个价格，DSP再拿着这个价格去市场上看，有没有符合这个价格且还有利差的流量
+。如果广告主出12元，DSP能在市场上找到10元就能满足广告主需求的流量，那么对于DSP而言，剩下的2元就是他
+的收入。DSP一般赚取10%-20%左右的利差
+
+
+
+一个产品要有竞争力，一定是满足了用户的需求，这个原则是不会变的，那么对于DSP而言，核心的竞争力就是：
+精准营销的能力。只有掌握了足够多的数据的DSP，才能真正做到人群的细分，达到按照人群来投放的目的。
+通过定向技术，可以定位到非常精确的人群，比如游戏的广告主通过DSP平台进行投放的时候，就可以选择，
+上海，18-24岁，对游戏感兴趣的人这种人群。
+
+
+标签方面：
+    我们的标签库一共大约有200个标签，我们的标签体系最多有分为四个层级，根据用户上网行为和兴趣爱好为一级标签，
+    其中上网行为又可以继续细分为时间特征，活跃程度、广告态度、终端类型、联网方式、运营商等。其中时间特征又可
+    以继续细分为使用的时间段，比如有上班早高峰、下班晚高峰、午休、上班时间、夜晚休闲、夜猫。我们给用户打上的
+    都是最后一级的具体的标签类型。打标签的过程其实是根据日志进行匹配的过程，如果有匹配上的才打上对应的标签，
+    平均每个用户最多能够给打上20-30个标签。
+
+
+
+项目优化：
+    该用Redis的方式代替广播变量。
+
+
+我记得有个同事在写入redis的时候忘记设置过期key，结果导致过了几天后当数据量大的时候把
+redis内存撑满了，导致了redis宕机。
+
+数仓项目：
+hive的库和表
+    ods层：ods_user  ods_user_extend ods_pc_client_pv_log   ods_app_client_pv_log  ods_order_item ...
+    dwd层：dwd_user   dwd_user_extend  ods_pc_client_pv_log->dwd_user_pc_pv  ods_app_client_pv_log->dwd_user_app_pv
+    dws层：dwd_user_pc_pv-->dws_user_visit_month
+    dm层：dwd_user+dwd_user_extend--->dm_user_basic
+
+指标：最近一次app端访问的操作系统，最近一次pc端访问的操作系统，最近一次访问使用的浏览器，最近一次访问使用的session，cookie。。。。
+
+    二级索引的本质就是建立各列值与行键之间的映射关系
+
+第二个项目改进成spark
+
+UDF自定义过哪些
+
+Kafka 面试宝典里的 35题往后
+
+堆内内存 堆外内存
+
+zookeeper 2181 2888 3888
+
+DSP需求方平台 ？？？ 和本公司关系？？
+
+
+
+电商Session日志分析系统
+开发语言：java
+数据采集：flume
+消息系统：kafka
+数据存储：源数据存储-HDFS（和Hive进行映射），离线结果数据-mysql、实时结果数据-mysql
+数据清洗：MR
+分析：离线-spark core、sparksql		实时-SparkStreaming
+资源调度系统：Spark-On-Yarn
+
+用户浏览该电商网站会产生很多的浏览行为，比如：
+	首先进入首页，点击了某个品类，进入了某个商品页面
+	然后又在搜索框里搜索了某些关键字并进行商品的浏览
+	把感兴趣的商品加入购物车，开始下单
+	最后进行支付操作并退出网站
+
+	用户的每一次操作，就可以理解为一个动作（action），比如：点击、搜索、下单、支付。
+	每一个动作会对应一条数据
+	用户访问session指的是，从用户第一次进入首页，该session就开始了，
+	在一定的时间范围内做的一系列操作，直到最后操作完成，这个过程有可能做了几十次甚至上百次操作，
+	只要离开或关闭浏览器，或者长时间没有操作，该session就结束了。
+
+	以上用户在网站的访问的整个行为过程，就称为一次session。
+	所以session实际上就是电商网站中最基本的数据，是属于面向用户端的分析
+
+
+
+
+
+
+1、具有扎实的JavaSE基础，熟练使用Java语言、Scala语言进行开发工作；
+
+
+2、掌握HDFS存储原理，MapReduce运行原理和Yarn资源调度原理；
+    HDFS存储原理：
+        首先，HDFS的架构有三个角色：Client客户端，系统的使用者，调用HDFS API操作文件，与NN交互获取文件元数据，与DN交互进行数据读写。
+    Namenode：元数据节点，是系统的唯一管理者，负责元数据的管理，与client交互进行提供元数据查询，分配数据存储节点等。
+    Datanode：数据存储节点，负责数据块的存储与冗余备份；执行数据块的读写操作等。
+       读策略：HDFS采用的是“一次写入多次读取”的文件访问模型。一个文件经过创建、写入和关闭之后就不需要改变。数据存储已经按照客户端与
+    DataNode节点之间的距离进行了排序，距客户端越近的DataNode节点被放在最前面，客户端会优先从本地读取该数据块。
+       写策略：HDFS中的存储单元是block。文件通常被分成64或128M一块的数据块进行存储。与普通文件系统不同的是，在HDFS中，如果一个文件大小
+    小于一个数据块的大小，它是不需要占用整个数据块的存储空间的。
+
+
+    Yarn资源调度原理：
+        Yarn只提供运算资源的调度（用户程序向Yarn申请资源，Yarn就负责分配资源）
+        Yarn中的主管角色叫ResourceManager
+        Yarn中具体提供运算资源的角色叫NodeManager
+        Yarn与运行的用户程序完全解耦，因此Yarn上可以运行各种类型的分布式运算程序（MR，Storm、Spark等）
+        ResourceManager：负责协调和管理整个集群的资源，它会为每一个Application启动一个MRAppMaster，它主要由两个组件构成：
+            调度器（Scheduler）和应用程序管理器（ApplicationsManager，ASM）。它的主要职责是处理客户端请求，启动或监控MRAppMaster，
+            监控NodeManager，资源分配和调度。
+        NodeManager：真正的资源提供者，真正执行应用程序的容器的提供者，它的主要职责是管理单个节点上的资源，处理来自ResourceManager
+            的命令，处理来自MRAppMaster的命令。
+        MRAppMaster：对应一个应用程序，职责是向资源调度器申请执行任务的资源容器，运行任务，监控整个任务的执行，跟踪整个任务的状态，
+            处理任务失败以及异常情况。
+        Container：Container 容器是一个抽象出来的逻辑资源单位。容器是由 ResourceManager Scheduler 服务 动态分配的资源构成，它包括
+            了该节点上的一定量 CPU，内存，磁盘，网络等信息，MapReduce 程序的所有 Task 都是在一个容器里执行完成的，容器的大小是可以
+            动态调整的
+        ApplicationsMaster：负责管理整个系统中所有应用程序，包括应用程序提交、与调度器协 商资源以启动 MRAppMaster、监控 MRAppMaster
+            运行状态并在失败时重新启动它等
+        Scheduler：根据应用程序的资源需求进行资源分配，不参与应用程序具体的执行和监控等工作 资源分配的单位就是 Container，调度器是一个
+            可插拔的组件，用户可以根据自己的需求实 现自己的调度器。YARN 本身为我们提供了多种直接可用的调度器，比如 FIFO，Fair Scheduler
+            和 Capacity Scheduler 等
+
+3、熟悉Linux各种常用命令，能够使用Linux开发环境和IDEA等各种开发工具；
+    Linux常用命令：
+       cd、ls、ls -l（长清单模式）、ls -lh（大小）、ls -a（显示隐藏文件）、ls -R（递归列出所有子目录）、ls -lt（通过修改时间列出）
+       ls -p(增加/标记目录）
+       mkdir A B C D（一次创建多个文件夹）、mkdir -p dira/dirb/dirc(创建带子目录的文件夹）、rmdir abc（删除目录）、rmdir -p dira/dirb/dirc
+       cat >filename(从键盘创建一个文件）、cat file1 file2>flie（将几个文件合并为1个文件）
+       tac filename（cat的反向查看，文件最后一行先显示）、cat，more（查看）
+       head -n 6 filename（显示文件前6行）
+       touch -t 201611151010 filename（修改文件时间或创建新文件）、touch file1 file2（设置file1和file2的时间戳相同）
+       chown root file（文件所有者改为root）、chown -R root A（文件夹所有者改为root）
+       find . -name "*.txt" -print（查找出当前目录下所有的.txt格式文件）
+       tar -zxvf filename.tar.gz（解压）、grep 'linux' test1.txt test2.txt（从多个文件中查找关键词）
+       cat test.txt|grep ^h （找出以h开头的行内容）、cat test.txt|grep ^[^h](不以h开头的）
+       cat text.txt|grep de$(以de结尾的）
+       grep '[a-z]\{7\}' *.txt（找出当前目录下以.txt结尾且每个字符串至少包含7个小写字母的行内容）
+       shutdown -r now(立即重启）、shutdown -r 10（10分钟后重启）、shutdown -r 20:10（指定时间重启）
+       shutdown -c（取消重启）、halt（立刻关机）、poweroff、shutdown -h now (关机)
+       fuser -n tcp 5601(根据端口查看进程ID）、
+
+       df -h（查看磁盘使用情况）、du -sh * 查看文件大小
+
+       chmod 777 *.sh （加上可执行权限）
+
+       ps -aux|head -n 10（查看前10个进程）
+       ps -aux|sort nk3|head -n 10(查找内存使用的前十的进程）sort -nk3（从小到大排序）、sort -nk3r（倒序）
+
+
+4、熟练使用SQL、HQL，可使用UDF拓展Hive功能，能够对Hive进行优化；
+     UDF: 一进一出  upper  lower substring
+     UDAF：Aggregation  多进一出  count max min sum ...
+     UDTF: Table-Generation  一进多出
+     自定义UDF的步骤：
+        1.定义一个类extends UDF（继承UDF）
+        2.实现evaluate函数
+        注册临时UDF
+        3.add jar /home/hadoop/lib/hive-1.0.jar
+        4.create temporary function sayHello as 'com.hjm.bigdata.HelloUDF'
+          show functions 查找是否存在
+        注册永久UDF
+        修改源代码，重编译，注册函数。这种方法可以永久性的保存udf函数，但是风险很大
+
+5、能够使用Spark Core、Spark SQL、Spark Streaming进行实时或者离线分析；
+
+
+
+6、能够对Spark进行优化，解决数据倾斜、OOM等常见问题；
+    内存出现OOM问题：
+         Shuffle过程中reduce端拉取数据并不是等到map端输出完成才拉取的,而是map端写出一点,reduce端就开始拉取,一遍拉取一边计算.
+    但是当map端写出数据太快,reduce端的缓冲区都达到最大极限值,这时候在加上reduce端执行的聚合函数的代码创建的大量对象,可能就会
+    内存撑不住,发生OOM.我们这时候用一种性能换执行的方法,调小缓冲区的大小,比如从原来的48M调成24M,这样虽然要多拉取几次,但是拉取
+    到reduce端的数据量变少了,就不容易发生OOM问题了
+    .set("spark.reducer.maxSizeInFlight","24")
+    相反,资源足够时调大缓冲区就能减少拉取次数,提升性能.
+
+
+7、掌握数据仓库建模，分层结构，使用过kettle等ETL工具，有ETL开发经验；
+
+
+
+8、能够使用MySQL、Hbase、Redis等关系型与非关系型数据库；
+    mysql:3306  Hbase:60010     Redis:6379
+
+
+9、能使用sqoop和flume等组件进行数据采集；
+
+
+10、掌握Kafka消息中间件及其原理，掌握Zookeeper的架构和工作原理；
+
+
+
+    zookeeper本身可以是单机模式，也可以是集群模式。一般为了避免单点故障使用master/slave的集群模式。
+    zookeeper是一个由多个server组成的集群。一个leader，多个follower。每个server保存一份数据副本。
+    全局数据一致，分布式读写，更新请求转发，由leader实施
+
+11、良好的英文基础和团队沟通能力，具备良好的编程规范和较好的文档编写能力。
+
+
+
+
+Scala
+
+  (1)隐式转换(implicit)
+     object Implicit{
+        def main(args:Array[String]):Unit={
+            implicit val a:Int=10
+            def m2(a:Int)(implicit b:Int)=a+b
+            print(m2(5)(4)) //9
+            print(m2(5))  //15
+        }
+     }
+    隐式转换的注意事项：
+    ①隐式参数值是从上下文环境中寻找，匹配使用implicit修饰的变量，且最多只有一个，与方法参数列表中隐式类型一致，并使用。
+    ②如果匹配到多个，报错。
+    ③如果上下文中没有，则使用方法参数列表中的默认隐式值。
+    ④如果没有默认值，报错。
+    ⑤一个参数列表中只能有一个implicit关键字，implicit放到最后一个列表中，并修饰该列表中的所有参数，如：
+    ---------------------
+    def m2(a:Int)(b:Int)(implicit c:Int,d:Int)
+    implicit val scala:Int=20
+    def m3(a:Int)(b:Int)(implicit c:Int,d:Int)=a+b+c+d
+    println(m3(5)(5))//结果为 50=5+5+20+20
+
+
+  (2)柯理化
+     scala中的curring是将一个正常的方法转换为柯里化的一个过程
+     把一个参数列表中的多个参数转换为多个列表
+     def m1(a:Int,b:Int)=a+b
+     def m2(a:Int)(b:Int)=a+b
+
+
+  (3)scala中_的用法
+       1.方法转化为函数
+            def m1(x:Int,y:Int)=x*y
+            val f1 = m1 _
+       2.集合中的每一个元素
+            val list = List(1,2,3)
+            val list1 = list.map(_ * 10)
+       3.获取元组tuple中的元素
+            val t = ("hadoop",3.14,100)
+                t._1  t._2 ...
+       4.模式匹配
+            val word = "spark"
+            val result = word match{
+                case "hadoop" => 1
+                case "spark" => 2
+                case _ => 0
+            }
+       5.队列
+            val list = List(1,2,3,4)
+            list match{
+                case List(_,_*) => 1
+                case _ => 2
+            }
+       6.导包引入的时候
+            import scala.collection.mutable._
+            表示将该包下面所有的类都导入
+       7.初始化变量
+            val name:String = _  等价于 val name：String = null
+            val age:Int = _     等价于 val age:Int = 0
+
+Spark Streaming 进行性能调优
+    代码优化部分
+
+    多个Action计算最好基于同一个RDD进行计算操作, 并且对相同的RDD进行Cache操作，避免重复计算，增加任务的执行时间；
+    并且持久化级别最好使用MEMORY_ONLY_SER来减少内存使用；
+    在使用join的地方看是否可以使用map算子和广播变量的方式替代；
+    使用高效的算子， 例如：
+
+    使用reduceByKey/aggregateByKey来代替groupByKey, 因为前者可以进行combiner操作，减少网络IO;
+    使用MapPartition来代替Map操作， 尤其是在需要网络连接的地方；
+    使用foreachPartition代替foreach操作，可以对数据进行批量处理；
+    在filter操作后，可以使用colease操作，可以减少任务数;
+
+    序列化尽量使用Kryo方式, 其性能更好;
+    减少对复杂数据结构的使用，可以有效减少序列化时间;
+    对应简单的函数，最好使用闭合结构，可以有效减少网络IO;
+    使用Repartition操作可以有效增加任务的处理并行度；
+
+    参数调整优化部分
+    经过实践验证，调整后有效的参数如下:
+
+    根据资源情况，可以添加Executor的个数来有效，参数为** spark.executor.instances **
+    调整每个Executor的使用内核数, 参数为** spark.executor.cores **
+    调整每个Executor的内存， 参数为** spark.executor.memory **
+    shuffle write task的buffer大小，  参数为** spark.shuffle.file.buffer **
+    shuffle read task的buffer大小，  参数为** spark.reducer.maxSizeInFlight **
+    每一个stage的task的默认并行度， 默认为200， 建议修改为1000左右， 参数 ** spark.default.parallelism **
+    用于RDD的持久化使用的内存比例，默认0.6,  参数 ** spark.storage.memoryFraction **
+    用户shuffle使用的内存比例， 默认为0.2， 参数 ** spark.shuffle.memoryFraction **
+
+    其它优化
+
+    增加数据读取的并行度，比如读取Kafka的数据， 可以增加topic的partition数量和executor的个数；
+    限制读取Kafka数据的速率，参数 ** spark.streaming.kafka.maxRatePerPartition **
+    对于存在数据倾斜问题，有两类情况:
+
+    进行join操作，产生skew问题， 可以使用map+广播变量类进行处理；
+    对redece/aggregate等聚合操作，参数skew问题， 可以进行两次聚合的思想来解决， 核心是先进行key进行随机数操作，
+    是数据分布均匀，并进行聚合，最后是剔除随机数据，用实际数据来进行聚合操作。
+

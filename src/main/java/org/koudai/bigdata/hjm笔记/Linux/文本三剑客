@@ -1,0 +1,27 @@
+
+grep '^.*$' /etc/password    搜索passwd文件中所有用户的信息
+awk ‘NR < 5’ file 　　　　  #打印文件中行号小于5的行
+sed '1,3d' 'test' 删除test文件的一到三行
+chmod 777 file   给文件设置权限
+cat file | tr[a-z] [A-Z]    统一字母大小写，将file中的小写字母替换为大写字母
+
+
+行转列：case when
+列转行：union all
+
+select year,'m1' month,amount amount1 from t1
+union all
+select year,'m2' month,amount amount1 from t1
+union all
+select year,'m3' month,amount amount1 from t1
+union all
+select year,'m4' month,amount amount1 from t1
+
+
+select year,
+    max(case when month='m1' then amount else 0 end) m1,
+    max(case when month='m2' then amount else 0 end) m2,
+    max(case when month='m3' then amount else 0 end) m3,
+    max(case when month='m4' then amount else 0 end) m4
+   from t1 group by year;
+

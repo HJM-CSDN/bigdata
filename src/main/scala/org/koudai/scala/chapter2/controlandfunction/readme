@@ -1,0 +1,9 @@
+本章讲解scala控制结构和函数部分
+
+1.if语句		    ControllIF.scala
+2.其他部分		ControlOther.scala
+3.循环			ControlCirculation.scala
+4.函数			Function.scala		
+5.懒值			Lazy.scala
+6.异常			Exception.scala
+

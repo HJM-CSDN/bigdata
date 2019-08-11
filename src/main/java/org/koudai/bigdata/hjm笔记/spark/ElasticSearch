@@ -1,0 +1,47 @@
+脑裂问题的原因：
+    如果两个节点之间的通讯中断了，两个节点都相信对方已经挂了，那么不是主节点的一方就会自动选举
+它自己为主节点，因为它相信集群的一部分没有主节点了，所以它会自动提升复制节点为主节点。那么我们
+的集群也就在一个不一致的状态了。
+
+1、ElasticSearch如何避免脑裂
+   修改集群中每个节点的配置文件（elasticsearch.yml）参数 discovery.zen.minimum_master_nodes，
+   这个参数决定了主节点选择过程中最少需要多少个 master 节点，默认配置是1。
+   一个基本原则是这里需要设置成 N/2+1，N 是集群中节点的数量。
+   修改集群中每个节点的配置文件（elasticsearch.yml）参数 discovery.zen.ping.timeout，默认值是3，
+   决定节点之间网络通信的等待时间。
+   修改集群中每个节点的配置文件（elasticsearch.yml）参数 discovery.zen.ping.unicast.hosts，
+   把集群中可能成为主节点的机器节点都配置到这个参数中。
+
+2、ElasticSearch中:match和term区别
+
+    term是代表完全匹配，也就是精确查询，搜索前不会再对搜索词进行分词，所以搜索词必须是文档分词集合中的一个
+
+    match查询会先对搜索词进行分词,分词完毕后再逐个对分词结果进行匹配,因此相比于term的精确搜索,match是分词
+    匹配搜索,match搜索还有两个相似功能的变种,一个是match_phrase,一个是multi_match
+
+知识点:
+1 ELK技术栈:
+    属于Elastic公司的产品,负责数据采集,存储,展示服务.
+    E: ElasticSearch,是一个文件存储系统,负责数据的存储和检索.开源免费,java语言实现
+    L: Logstash,是一个数据采集工具,负责监控目录或服务等等把数据采集过来.开源免费,JRuby语言实现
+    K: Kibana,是一个结果数据展示工具,负责结果数据的可视化工作.不开源,部分功能免费.95%JavaScript语言加5%的java语言
+       现在Echarts工具也很常用.
+
+2 Lucene:
+    是一个开放源代码的全文检索引擎工具包.不完整,是一个全文检索引擎的架构.
+3 ElasticSearch:
+    是一个基于Lucene的搜索服务器,提供了一个分布式多用户能力的全文搜索引擎.
+
+4 Web 页面:
+    五角星:主节点
+    圆形:工作节点
+
+5 ES提供了两套API---RestAPI,JavaAPI
+    
+
+
+
+
+
+
+

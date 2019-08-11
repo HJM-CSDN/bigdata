@@ -1,0 +1,64 @@
+不同的SQL Join:
+    inner join:在表中存在至少一个匹配时，INNER JOIN 关键字返回行。
+          join:如果表中有至少一个匹配,则返回行   注释：INNER JOIN 与 JOIN 是相同的。
+     left join;即使右表中没有匹配,也从左表返回所有的行
+    right join:即使左表中没有匹配,也从右表返回所有的行
+     full join:只要其中一个表中存在匹配,就返回行
+
+hive的join：
+    hive的left outer join：如果右边有多行和左边表对应，就每一行都映射输出；
+                           如果右边没有行与左边行对应，就输出左边行，右边表字段为NULL；
+    hive的left semi join：相当于SQL的in语句，比如上面测试3的语句相当于
+                        “select * from table1 where table1.student_no in (table2.student_no)”，
+                          注意，结果中是没有B表的字段的。
+
+
+不同的Spark的join:
+             join:会输出两个RDD中key相同的所有项,并将value联结起来
+    leftOuterJoin:leftOuterJoin会保留对象的所有key，而用None填充在参数RDD other中缺失的值，
+                  因此调用顺序会使结果完全不同。
+    rightOuterJoin:与leftOuterJoin基本一致，区别在于它的结果保留的是参数other这个RDD中所有的key。
+    fullOuterJoin:会保留两个RDD中所有的key，因此所有的值列都有可能出现缺失的情况，
+                  所有的值列都会转为Some对象。  None	 Some(Male)...
+
+Spark SQL的三种join:
+    Broadcast Join
+
+    Shuffle Hash Join
+
+    Sort Merge Join
+
+解释:
+    Broadcast Join:
+        在数据库的常见模型中（比如星型模型或者雪花模型），表一般分为两种：事实表和维度表。
+     维度表一般指固定的、变动较少的表，例如联系人、物品种类等，一般数据有限。而事实表一般记录流水，
+     比如销售清单等，通常随着时间的增长不断膨胀。
+     因为Join操作是对两个表中key值相同的记录进行连接，在SparkSQL中，对两个表做Join最直接的方式是先
+     根据key分区，再在每个分区中把key值相同的记录拿出来做连接操作。但这样就不可避免地涉及到shuffle，
+     而shuffle在Spark中是比较耗时的操作，我们应该尽可能的设计Spark应用使其避免大量的shuffle。
+
+     当维度表和事实表进行Join操作时，为了避免shuffle，我们可以将大小有限的维度表的全部数据分发到
+     每个节点上，供事实表使用。executor存储维度表的全部数据，一定程度上牺牲了空间，换取shuffle操作
+     大量的耗时，这在SparkSQL中称作Broadcast Join
+     ---------------------
+
+    Shuffle Hash Join
+    当一侧的表比较小时，我们选择将其广播出去以避免shuffle，提高性能。但因为被广播的表首先被collect
+    到driver段，然后被冗余分发到每个executor上，所以当表比较大时，采用broadcast join会对driver端和
+    executor端造成较大的压力。
+
+    但由于Spark是一个分布式的计算引擎，可以通过分区的形式将大批量的数据划分成n份较小的数据集进行并行
+    计算。这种思想应用到Join上便是Shuffle Hash Join了。利用key相同必然分区相同的这个原理，SparkSQL
+    将较大表的join分而治之，先将表划分成n个分区，再对两个表中相对应分区的数据分别进行Hash Join，这样
+    即在一定程度上减少了driver广播一侧表的压力，也减少了executor端取整张被广播表的内存消耗。
+    ---------------------
+
+    Sort Merge Join
+    上面介绍的两种实现对于一定大小的表比较适用，但当两个表都非常大时，显然无论适用哪种都会对计算内存
+    造成很大压力。这是因为join时两者采取的都是hash join，是将一侧的数据完全加载到内存中，使用hash
+    code取join keys值相等的记录进行连接。
+
+    当两个表都非常大时，SparkSQL采用了一种全新的方案来对表进行Join，即Sort Merge Join。这种实现方
+    式不用将一侧数据全部加载后再进星hash join，但需要在join前将数据排序.
+    ---------------------
+https://blog.csdn.net/asongoficeandfire/article/details/53574034

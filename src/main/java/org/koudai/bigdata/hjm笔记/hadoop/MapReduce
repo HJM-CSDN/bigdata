@@ -1,0 +1,150 @@
+1.job提交流程
+https://blog.csdn.net/qq_17776287/article/details/78176515
+图片见有道云:我的资源
+（1）提交作业：Client提交Job
+    1.Client写好Job后，调用Job实例的Submit()方法提交作业
+    2.从RM获取新的作业ID，在Yarn命名法中它是一个Application ID
+（2）作业初始化：
+    给作业分配ApplicationMaster
+    1.RM收到调用它的submitApplication()消息后，便将请求传递给scheduler（调度器）
+    2.scheduler分配一个Container，然后RM在该NodeManager的管理下在Container中启动AppMaster
+    ApplicationMaster初始化作业
+    3.AppMs对作业进行初始化，通过创建多个对象保持对作业进度的跟踪，因为它将监视来自任务的进度和完成报告。
+    4.AppMs从HDFS中获取在Client计算的输入分片（map、reduce任务数）也就是根据客户端的任务规划和切片信息计算出maptask数量，
+    对每一个分片创建一个map任务对象。
+（3）任务分配
+    AppMaster为该作业中所有的maptask和reducetask向RM请求Container
+（4）任务执行
+    1.RM给任务分配了Container后，AppMaster就会与NodeManager通信启动Container。
+    2.此任务有主类为YardChild的程序执行。在运行任务之前，首先要将任务需要的资源本地化（包括作业的配置、JAR文件和所有来自分布式缓存的文件）
+    3.运行map任务或者reduce任务
+（5）进度和状态的更新
+    在YARN下运行，任务每3s向AppMaster汇报进度和状态
+（6）作业完成
+    1.客户端除了向AppMaster查询进度外，还每5s调用一个方法检查作业是否完成
+    2.作业完成后，AppMaster关闭并注销自己。
+
+总结版本:
+由client端发起任务提交的请求,ResourceManager接收到client端发来的job提交请求,
+首先ResourceManager会判断启动该job的ApplicationMaster所需要的资源,
+之后ResourceManager会交给Scheduler,Scheduler会把这些资源封装成一个Container(一组资源的集合),
+然后ResourceManager会和某一个NodeManager通信根据调度算法在该NodeManager上启动ApplicationMaster,
+ApplicationMaster启动后会计算提交的job所需要的资源,并向Scheduler申请这些资源,
+ApplicationManager会分配相应的资源,并通知NodeManager来启动一个YarnChild,
+YarnChild会和ApplicationMaster之间进行通信,由ApplicationMaster对YarnChild进行监控
+(如果失败就回收资源重新申请，如果成功就释放资源，当任务执行完成之后汇报Scheduler，
+Scheduler回收资源并且向ResourceManager返回执行结果，整个任务处理完毕。)
+
+
+
+(1）在main方法中调用job.waitForCompletion(true)，waitForCompletion中又调用了job.submit()，于是，提交过程开始了。submit函数如下：
+
+	public void submit(){
+  ……
+  //主要是获取客户端和RM进行RPC通信时使用的代理对象
+  connect();
+
+  //获取JobSubmitter对象，并调用其submitJobInternal方法
+  final JobSubmitter submitter =
+      getJobSubmitter(cluster.getFileSystem(), cluster.getClient());
+  ……
+  submitter.submitJobInternal(Job.this, cluster);
+  ……
+ }
+2）job.connect()：话说JOB提交至YARN上的阶段主要是客户端和RM进行RPC通信，这里使用的通信协议是ClientProtocol，
+    因此需要在客户端获得ClientProtocol的代理对象，这是通过job.connect()完成的。
+	private synchronized void connect(){
+  ……
+    cluster =  new Cluster(conf);
+  ……
+}
+
+public Cluster(Configuration conf){
+  ……
+  initialize(null, conf);
+}
+
+private void initialize(null, conf) {
+  ……
+  //frameworkLoader中封装了LocalClientProtocolProvider和YarnClientProtocolProvider对象，对应的表示MR程序在本地运行和在YARN上运行
+  for (ClientProtocolProvider provider : frameworkLoader) {
+
+    ClientProtocol clientProtocol = null;
+    ……
+    //这里拿到RPC通信使用的代理对象
+    clientProtocol = provider.create(conf);
+    if (clientProtocol != null) {
+      ……
+      //保存到Cluster中的client成员变量
+      client = clientProtocol;
+      break;
+    } //end if
+    ……
+  } //end for
+}
+3）submitter.submitJobInternal():客户端拿到通信的代理对象后，接下来就是和RM进行通信，并完成一系列操作，主要包括：
+①检查作业输出路径是否存在，若存在抛出异常。
+②获取jobStagingArea、jobID，并拼接出submitJobDir。submitJobDir目录用于存放客户端提交的作业文件。
+③提交作业jar文件(job.jar)
+④计算作业的输入分片，并提交分片信息(job.split、job.splitmetainfo)
+⑤将配置对象（conf）写入job.xml
+⑥客户端准备就绪，请求RM运行作业
+	submitter.submitJobInternal()中的主要代码如下：
+
+  JobStatus submitJobInternal(Job job, Cluster cluster)  {
+    // ①
+    checkSpecs(job);
+
+    ……
+
+    // ②
+    Path jobStagingArea = JobSubmissionFiles.getStagingDir(cluster, conf);
+    ……
+    JobID jobId = submitClient.getNewJobID();
+    job.setJobID(jobId);
+    Path submitJobDir = new Path(jobStagingArea, jobId.toString());
+
+    ……
+    try {
+      ……
+
+      // ③
+      copyAndConfigureFiles(job, submitJobDir);
+
+      // ⑤-1 获取作业配置文件(job.xml)的路径
+      Path submitJobFile = JobSubmissionFiles.getJobConfPath(submitJobDir);
+
+      // ④
+      int maps = writeSplits(job, submitJobDir);
+      conf.setInt("mapreduce.job.maps", maps);
+
+      ……
+
+      // ⑤-2 Write job file to submit dir
+      writeConf(conf, submitJobFile);
+
+      ……
+      // ⑥
+      submitClient.submitJob(
+          jobId, submitJobDir.toString(), job.getCredentials());
+      ……
+    } finally {
+      ……
+    }
+  }
+
+
+2.shuffle过程
+    MapReduce中,map阶段处理的数据如何传递给reduce阶段,是MapReduce框架中
+最关键的一个流程,这个流程就叫shuffle(奇迹发生的地方),
+
+	1、	maptask收集我们的map()方法输出的kv对，放到内存缓冲区中
+	2、	从内存缓冲区不断溢出本地磁盘文件，可能会溢出多个文件
+	3、	多个溢出文件会被合并成大的溢出文件
+	4、	在溢出过程中，及合并的过程中，都要调用partitoner进行分组和针对key进行排序
+	5、	reducetask根据自己的分区号，去各个maptask机器上取相应的结果分区数据
+	6、	reducetask会取到同一个分区的来自不同maptask的结果文件，reducetask会将这些文件再进行合并（归并排序）
+	7、	合并成大文件后，shuffle的过程也就结束了，后面进入reducetask的逻辑运算过程（从文件中取出一个一个的键值对group，调用用户自定义的reduce()方法）
+
+Shuffle中的缓冲区大小会影响到mapreduce程序的执行效率，原则上说，缓冲区越大，磁盘io的次数越少，执行速度就越快
+缓冲区的大小可以通过参数调整,参数：io.sort.mb  默认100M

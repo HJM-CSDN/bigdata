@@ -1,0 +1,48 @@
+笔试题
+乐观锁，悲观锁
+
+0到n-1个数，找重复数字
+
+HDFS分块在哪里
+
+scala的样例类
+
+scala的伴生对象、 特质（接口）和抽象类的区别
+
+数据包的大小
+
+java中有哪些集合类？
+    set     list    map
+
+集合接口为：Collection和Map    list、set实现了Collection接口
+
+kafka动态扩容
+
+2.Java中ThreadPoolExecutor构造函数有哪些主要参数？分别代表什么含义？
+
+
+
+3.表名dept，要求SQL查询所有符合个人薪水大于所在部门的平均薪资的人名【SQL】
+数据格式：
+    deptId          name            salary
+    10001           wangliang       2000
+    10001           liyang          3500
+    10002           chendong        2200
+    10003           liuhao          3000
+
+create table dept(
+    deptId int,
+    name varchar(20),
+    salary int
+);
+
+insert into dept values(10001,'wangliang',2000);
+insert into dept values(10001,'liyang',3500);
+insert into dept values(10002,'chendong',2200);
+insert into dept values(10003,'liuhao',3000);
+
+select name from dept where salary > (select avg(salary) from dept);
+
+此处不能用having。
+HAVING语句通常与GROUP BY语句联合使用，用来过滤由GROUP BY语句返回的记录集。
+HAVING语句的存在弥补了WHERE关键字不能与聚合函数联合使用的不足。

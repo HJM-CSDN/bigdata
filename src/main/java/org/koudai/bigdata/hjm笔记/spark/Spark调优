@@ -1,0 +1,617 @@
+文档:Spark调优方法
+1.1.	调优基本原则
+1.1.1.	基本概念和原则
+首先，要搞清楚Spark的几个基本概念和原则，否则系统的性能调优无从谈起：
+
+    每一台host上面可以并行N个worker，每一个worker下面可以并行M个executor，task们会被分配到executor上面去执行。
+    Stage指的是一组并行运行的task，stage内部是不能出现shuffle的，因为shuffle的就像篱笆一样阻止了并行task的运行，
+    遇到shuffle就意味着到了stage的边界。
+    CPU的core数量，每个executor可以占用一个或多个core，可以通过观察CPU的使用率变化来了解计算资源的使用情况，
+    例如，很常见的一种浪费是一个executor占用了多个core，但是总的CPU使用率却不高（因为一个executor并不总能充分利用多核的能力），
+    这个时候可以考虑让一个executor占用更少的core，同时worker下面增加更多的executor，或者一台host上面增加更多的worker来增加
+    并行执行的executor的数量，从而增加CPU利用率。但是增加executor的时候需要考虑好内存消耗，因为一台机器的内存分配给越多的executor，
+    每个executor的内存就越小，以致出现过多的数据spill over甚至out of memory的情况。
+    partition和parallelism，partition指的就是数据分片的数量，每一次task只能处理一个partition的数据，这个值太小了会导致每片数据量太大，
+    导致内存压力，或者诸多executor的计算能力无法利用充分；但是如果太大了则会导致分片太多，执行效率降低。在执行action类型操作的时候
+    （比如各种reduce操作），partition的数量会选择parent RDD中最大的那一个。而parallelism则指的是在RDD进行reduce类操作的时候，
+    默认返回数据的paritition数量（而在进行map类操作的时候，partition数量通常取自parent RDD中较大的一个，而且也不会涉及shuffle，
+    因此这个parallelism的参数没有影响）。所以说，这两个概念密切相关，都是涉及到数据分片的，作用方式其实是统一的。通过
+    spark.default.parallelism可以设置默认的分片数量，而很多RDD的操作都可以指定一个partition参数来显式控制具体的分片数量。
+看这样几个例子：
+（1）实践中跑的Spark job，有的特别慢，查看CPU利用率很低，可以尝试减少每个executor占用CPU core的数量，增加并行的executor数量，同时配合增加分片，整体上增加了CPU的利用率，加快数据处理速度。
+（2）发现某job很容易发生内存溢出，我们就增大分片数量，从而减少了每片数据的规模，同时还减少并行的executor数量，这样相同的内存资源分配给数量更少的executor，相当于增加了每个task的内存分配，这样运行速度可能慢了些，但是总比OOM强。
+（3）数据量特别少，有大量的小文件生成，就减少文件分片，没必要创建那么多task，这种情况，如果只是最原始的input比较小，一般都能被注意到；但是，如果是在运算过程中，比如应用某个reduceBy或者某个filter以后，数据大量减少，这种低效情况就很少被留意到。
+最后再补充一点，随着参数和配置的变化，性能的瓶颈是变化的，在分析问题的时候不要忘记。例如在每台机器上部署的executor数量增加的时候，性能一开始是增加的，同时也观察到CPU的平均使用率在增加；但是随着单台机器上的executor越来越多，性能下降了，因为随着executor的数量增加，被分配到每个executor的内存数量减小，在内存里直接操作的越来越少，spill over到磁盘上的数据越来越多，自然性能就变差了。
+    下面给这样一个直观的例子，当前总的cpu利用率并不高：
+
+但是经过根据上述原则的的调整之后，可以显著发现cpu总利用率增加了：
+
+其次，涉及性能调优我们经常要改配置，在Spark里面有三种常见的配置方式，虽然有些参数的配置是可以互相替代，但是作为最佳实践，还是需要遵循不同的情形下使用不同的配置：
+1.设置环境变量，这种方式主要用于和环境、硬件相关的配置；
+2.命令行参数，这种方式主要用于不同次的运行会发生变化的参数，用双横线开头；
+3.代码里面（比如Scala）显式设置（SparkConf对象），这种配置通常是application级别的配置，一般不改变。
+举一个配置的具体例子。slave、worker和executor之间的比例调整。我们经常需要调整并行的executor的数量，那么简单说有两种方式：
+1.每个worker内始终跑一个executor，但是调整单台slave上并行的worker的数量。比如，SPARK_WORKER_INSTANCES可以设置每个slave的worker的数量，但是在改变这个参数的时候，比如改成2，一定要相应设置SPARK_WORKER_CORES的值，让每个worker使用原有一半的core，这样才能让两个worker一同工作；
+2.每台slave内始终只部署一个worker，但是worker内部署多个executor。我们是在YARN框架下采用这个调整来实现executor数量改变的，一种典型办法是，一个host只跑一个worker，然后配置spark.executor.cores为host上CPU core的N分之一，同时也设置spark.executor.memory为host上分配给Spark计算内存的N分之一，这样这个host上就能够启动N个executor。
+有的配置在不同的MR框架/工具下是不一样的，比如YARN下有的参数的默认取值就不同，这点需要注意。
+明确这些基础的事情以后，再来一项一项看性能调优的要点。
+1.1.2.	性能监控方式
+1.1.2.1.	Spark Web UI
+Spark提供了一些基本的Web监控页面，对于日常监控十分有用。
+通过http://master:4040（默认端口是4040，可以通过spark.ui.port修改）我们可以获得运行中的程序信息：（1）stages和tasks调度情况；（2）RDD大小及内存使用；（3）系统环境信息；（4）正在执行的executor信息。
+如果想当Spark应用退出后，仍可以获得历史Spark应用的stages和tasks执行信息，便于分析程序不明原因挂掉的情况。可以开启History Server。配置方法如下：
+（1）$SPARK_HOME/conf/spark-env.sh
+export SPARK_HISTORY_OPTS="-Dspark.history.retainedApplications=50
+Dspark.history.fs.logDirectory=hdfs://master01:9000/directory"
+说明：spark.history.retainedApplica-tions仅显示最近50个应用spark.history.fs.logDirectory：Spark History Server页面只展示该路径下的信息。
+（2）$SPARK_HOME/conf/spark-defaults.conf
+spark.eventLog.enabled true
+spark.eventLog.dir hdfs://hadoop000:8020/directory #应用在运行过程中所有的信息均记录在该属性指定的路径下
+spark.eventLog.compress true
+（3）HistoryServer启动
+$SPARK_HOMR/bin/start-histrory-server.sh
+（4）HistoryServer停止
+$SPARK_HOMR/bin/stop-histrory-server.sh
+同时Executor的logs也是查看的一个出处：
+Standalone模式：$SPARK_HOME/logs
+YARN模式：在yarn-site.xml文件中配置了YARN日志的存放位置：yarn.nodemanager.log-dirs，或使用命令获取yarn logs -applicationId。
+同时通过配置ganglia，可以分析集群的使用状况和资源瓶颈，但是默认情况下ganglia是未被打包的，需要在mvn编译时添加-Pspark-ganglia-lgpl，并修改配置文件$SPARK_HOME/conf/metrics.properties。
+1.1.2.2.	其他监控工具
+Nmon（http://www.ibm.com/developerworks/aix/library/au-analyze_aix/）
+Nmon 输入：c：CPU n：网络 m：内存 d：磁盘
+
+Jmeter（http://jmeter. apache.org/）
+通常使用Jmeter做系统性能参数的实时展示，JMeter的安装非常简单，从官方网站上下载，解压之后即可使用。运行命令在%JMETER_HOME%/bin下，对于 Windows 用户，直接使用jmeter.bat。
+启动jmeter：创建测试计划，设置线程组设置循环次数。
+添加监听器：jp@gc - PerfMon Metrics Collector。
+
+设置监听器：监听主机端口及监听内容，例如CPU。
+
+启动监听：可以实时获得节点的CPU状态信息，从下图可看出CPU已出现瓶颈。
+
+Jprofiler（http://www.ej-technologies.com/products/jprofiler/overview.html）
+JProfiler是一个全功能的Java剖析工具（profiler），专用于分析J2SE和J2EE应用程式。它把CPU、线程和内存的剖析组合在一个强大的应用中。JProfiler的GUI可以更方便地找到性能瓶颈、抓住内存泄漏（memory leaks），并解决多线程的问题。例如分析哪个对象占用的内存比较多；哪个方法占用较大的CPU资源等；我们通常使用Jprofiler来监控Spark应用在local模式下运行时的性能瓶颈和内存泄漏情况。
+
+1.1.3.	调优要点
+1.1.3.1.	内存调整要点
+Memory Tuning，Java对象会占用原始数据2~5倍甚至更多的空间。最好的检测对象内存消耗的办法就是创建RDD，然后放到cache里面去，然后在UI上面看storage的变化。使用-XX:+UseCompressedOops选项可以压缩指针（8字节变成4字节）。在调用collect等API的时候也要小心—大块数据往内存拷贝的时候心里要清楚。内存要留一些给操作系统，比如20%，这里面也包括了OS的buffercache，如果预留得太少了，会见到这样的错误：
+“Required executor memory (235520+23552 MB) is above the max threshold (241664MB) of this cluster! Please increase the value of ‘yarn.scheduler.maximum-allocation-mb’.
+或者干脆就没有这样的错误，但是依然有因为内存不足导致的问题，有的会有警告，比如这个：
+“16/01/13 23:54:48 WARN scheduler.TaskSchedulerImpl: Initial job has not accepted any resources; check your cluster UI to ensure that workers are registered and have sufficient memory
+有的时候连这样的日志都见不到，而是见到一些不清楚原因的executor丢失信息：
+“Exception in thread “main” org.apache.spark.SparkException: Job aborted due to stage failure: Task 12 in stage 17.0 failed 4 times, most recent failure: Lost task 12.3 in stage 17.0 (TID 1257, ip-10-184-192-56.ec2.internal): ExecutorLostFailure (executor 79 lost)
+Reduce Task的内存使用。在某些情况下reduce task特别消耗内存，比如当shuffle出现的时候，比如sortByKey、groupByKey、reduceByKey和join等，要在内存里面建立一个巨大的hash table。其中一个解决办法是增大level of parallelism，这样每个task的输入规模就相应减小。另外，注意shuffle的内存上限设置，有时候有足够的内存，但是shuffle内存不够的话，性能也是上不去的。我们在有大量数据join等操作的时候，shuffle的内存上限经常配置到executor的50%。
+注意原始input的大小，有很多操作始终都是需要某类全集数据在内存里面完成的，那么并非拼命增加parallelism和partition的值就可以把内存占用减得非常小的。我们遇到过某些性能低下甚至OOM的问题，是改变这两个参数所难以缓解的。但是可以通过增加每台机器的内存，或者增加机器的数量都可以直接或间接增加内存总量来解决。
+另外，有一些RDD的API，比如cache，persist，都会把数据强制放到内存里面，如果并不明确这样做带来的好处，就不要用它们。
+内存优化有三个方面的考虑：对象所占用的内存，访问对象的消耗以及垃圾回收所占用的开销。
+1. 对象所占内存，优化数据结构
+Spark 默认使用Java序列化对象，虽然Java对象的访问速度更快，但其占用的空间通常比其内部的属性数据大2-5倍。为了减少内存的使用，减少Java序列化后的额外开销，下面列举一些Spark官网提供的方法。
+（1）使用对象数组以及原始类型（primitive type）数组以替代Java或者Scala集合类（collection class)。fastutil 库为原始数据类型提供了非常方便的集合类，且兼容Java标准类库。
+（2）尽可能地避免采用含有指针的嵌套数据结构来保存小对象。
+（3）考虑采用数字ID或者枚举类型以便替代String类型的主键。
+（4）如果内存少于32GB，设置JVM参数-XX:+UseCom-pressedOops以便将8字节指针修改成4字节。与此同时，在Java 7或者更高版本，设置JVM参数-XX:+UseC-----ompressedStrings以便采用8比特来编码每一个ASCII字符。
+2. 内存回收
+（1）获取内存统计信息：优化内存前需要了解集群的内存回收频率、内存回收耗费时间等信息，可以在spark-env.sh中设置SPARK_JAVA_OPTS=“-verbose:gc -XX:+PrintGCDetails -XX:+PrintGCTimeStamps $ SPARK_JAVA_OPTS”来获取每一次内存回收的信息。
+（2）优化缓存大小：默认情况Spark采用运行内存（spark.executor.memory）的60%来进行RDD缓存。这表明在任务执行期间，有40%的内存可以用来进行对象创建。如果任务运行速度变慢且JVM频繁进行内存回收，或者内存空间不足，那么降低缓存大小设置可以减少内存消耗，可以降低spark.storage.memoryFraction的大小。
+3. 频繁GC或者OOM
+针对这种情况，首先要确定现象是发生在Driver端还是在Executor端，然后在分别处理。
+Driver端：通常由于计算过大的结果集被回收到Driver端导致，需要调大Driver端的内存解决，或者进一步减少结果集的数量。
+Executor端：
+（1）以外部数据作为输入的Stage：这类Stage中出现GC通常是因为在Map侧进行map-side-combine时，由于group过多引起的。解决方法可以增加partition的数量（即task的数量）来减少每个task要处理的数据，来减少GC的可能性。
+（2）以shuffle作为输入的Stage：这类Stage中出现GC的通常原因也是和shuffle有关，常见原因是某一个或多个group的数据过多，也就是所谓的数据倾斜，最简单的办法就是增加shuffle的task数量，比如在SparkSQL中设置SET spark.sql.shuffle.partitions=400，如果调大shuffle的task无法解决问题，说明你的数据倾斜很严重，某一个group的数据远远大于其他的group，需要你在业务逻辑上进行调整，预先针对较大的group做单独处理。
+1.1.3.2.	集群并行度调整要点
+在Spark集群环境下，只有足够高的并行度才能使系统资源得到充分的利用，可以通过修改spark-env.sh来调整Executor的数量和使用资源，Standalone和YARN方式资源的调度管理是不同的。
+在Standalone模式下:
+1. 每个节点使用的最大内存数：SPARK_WORKER_INSTANCES*SPARK_WORKER_MEMORY；
+2. 每个节点的最大并发task数：SPARK_WORKER_INSTANCES*SPARK_WORKER_CORES。
+在YARN模式下：
+    1. 集群task并行度：SPARK_ EXECUTOR_INSTANCES* SPARK_EXECUTOR_CORES；
+    2. 集群内存总量：
+        (executor个数) * (SPARK_EXECUTOR_MEMORY+ spark.yarn.executor.memoryOverhead)+(SPARK_DRIVER_MEMORY+spark.yarn.driver.memoryOverhead)。
+重点强调：Spark对Executor和Driver额外添加堆内存大小，Executor端：由spark.yarn.executor.memoryOverhead设置，默认值executorMemory * 0.07与384的最大值。Driver端：由spark.yarn.driver.memoryOverhead设置，默认值driverMemory * 0.07与384的最大值。
+通过调整上述参数，可以提高集群并行度，让系统同时执行的任务更多，那么对于相同的任务，并行度高了，可以减少轮询次数。举例说明：如果一个stage有100task，并行度为50，那么执行完这次任务，需要轮询两次才能完成，如果并行度为100，那么一次就可以了。
+但是在资源相同的情况，并行度高了，相应的Executor内存就会减少，所以需要根据实际实况协调内存和core。此外，Spark能够非常有效的支持短时间任务（例如：200ms），因为会对所有的任务复用JVM，这样能减小任务启动的消耗，Standalone模式下，core可以允许1-2倍于物理core的数量进行超配。
+Level of Parallelism。指定它以后，在进行reduce类型操作的时候，默认partition的数量就被指定了。这个参数在实际工程中通常是必不可少的，一般都要根据input和每个executor内存的大小来确定。设置level of parallelism或者属性spark.default.parallelism来改变并行级别，通常来说，每一个CPU核可以分配2~3个task。
+CPU core的访问模式是共享还是独占。即CPU核是被同一host上的executor共享还是瓜分并独占。比如，一台机器上共有32个CPU core的资源，同时部署了两个executor，总内存是50G，那么一种方式是配置spark.executor.cores为16，spark.executor.memory为20G，这样由于内存的限制，这台机器上会部署两个executor，每个都使用20G内存，并且各使用“独占”的16个CPU core资源；而在内存资源不变的前提下，也可以让这两个executor“共享”这32个core。根据测试，独占模式的性能要略好与共享模式。
+GC调优。打印GC信息：-verbose:gc -XX:+PrintGCDetails -XX:+PrintGCTimeStamps。要记得默认60%的executor内存可以被用来作为RDD的缓存，因此只有40%的内存可以被用来作为对象创建的空间，这一点可以通过设置spark.storage.memoryFraction改变。如果有很多小对象创建，但是这些对象在不完全GC的过程中就可以回收，那么增大Eden区会有一定帮助。如果有任务从HDFS拷贝数据，内存消耗有一个简单的估算公式——比如HDFS的block size是64MB，工作区内有4个task拷贝数据，而解压缩一个block要增大3倍大小，那么估算内存消耗就是：4*3*64MB。另外，还有一种情况：GC默认情况下有一个限制，默认是GC时间不能超过2%的CPU时间，但是如果大量对象创建（在Spark里很容易出现，代码模式就是一个RDD转下一个RDD），就会导致大量的GC时间，从而出现“OutOfMemoryError: GC overhead limit exceeded”，对于这个，可以通过设置-XX:-UseGCOverheadLimit关掉它。
+1.1.3.3.	序列化和传输
+    Data Serialization，默认使用的是Java Serialization，这个程序员最熟悉，但是性能、空间表现都比较差。
+    还有一个选项是Kryo Serialization，更快，压缩率也更高，但是并非支持任意类的序列化。
+    在Spark UI上能够看到序列化占用总时间开销的比例，如果这个比例高的话可以考虑优化内存使用和序列化。
+
+    Broadcasting Large Variables。在task使用静态大对象的时候，可以把它broadcast出去。Spark会打印序列化后的大小，
+    通常来说如果它超过20KB就值得这么做。有一种常见情形是，一个大表join一个小表，把小表broadcast后，
+    大表的数据就不需要在各个node之间疯跑，安安静静地呆在本地等小表broadcast过来就好了。
+
+    Data Locality。数据和代码要放到一起才能处理，通常代码总比数据要小一些，因此把代码送到各处会更快。
+    Data Locality是数据和处理的代码在物理量空间上接近的程度：PROCESS_LOCAL（同一个JVM）、NODE_LOCAL（同一个node，
+    比如数据在HDFS上，但是和代码在同一个node）、NO_PREF、RACK_LOCAL（不在同一个server，但在同一个机架）、ANY。
+    当然优先级从高到低，但是如果在空闲的executor上面没有未处理数据了，那么就有两个选择：
+    （1）要么等如今繁忙的CPU闲下来处理尽可能“本地”的数据，
+    （2）要么就不等直接启动task去处理相对远程的数据。
+    默认当这种情况发生Spark会等一会儿（spark.locality），即策略（1），如果繁忙的CPU停不下来，就会执行策略（2）。
+代码里对大对象的引用。在task里面引用大对象的时候要小心，因为它会随着task序列化到每个节点上去，引发性能问题。只要序列化的过程不抛出异常，引用对象序列化的问题事实上很少被人重视。如果，这个大对象确实是需要的，那么就不如干脆把它变成RDD好了。绝大多数时候，对于大对象的序列化行为，是不知不觉发生的，或者说是预期之外的，比如在我们的项目中有这样一段代码：
+rdd.map(r => {
+  println(BackfillTypeIndex)
+})
+
+其实呢，它等价于这样：
+rdd.map(r => {
+  println(this.BackfillTypeIndex)
+})
+
+不要小看了这个this，有时候它的序列化是非常大的开销。
+对于这样的问题，一种最直接的解决方法就是：
+val dereferencedVariable = this.BackfillTypeIndex
+rdd.map(r => println(dereferencedVariable)) // "this" is not serialized
+
+相关地，注解@transient用来标识某变量不要被序列化，这对于将大对象从序列化的陷阱中排除掉是很有用的。另外，注意class之间的继承层级关系，有时候一个小的case class可能来自一棵大树。
+1.1.3.4.	文件读写
+文件存储和读取的优化。比如对于一些case而言，如果只需要某几列，使用rcfile和parquet这样的格式会大大减少文件读取成本。再有就是存储文件到S3上或者HDFS上，可以根据情况选择更合适的格式，比如压缩率更高的格式。另外，特别是对于shuffle特别多的情况，考虑留下一定量的额外内存给操作系统作为操作系统的buffer cache，比如总共50G的内存，JVM最多分配到40G多一点。
+文件分片。比如在S3上面就支持文件以分片形式存放，后缀是partXX。使用coalesce方法来设置分成多少片，这个调整成并行级别或者其整数倍可以提高读写性能。但是太高太低都不好，太低了没法充分利用S3并行读写的能力，太高了则是小文件太多，预处理、合并、连接建立等等都是时间开销啊，读写还容易超过throttle。
+1.1.3.5.	任务调整要点
+Spark的Speculation。通过设置spark.speculation等几个相关选项，可以让Spark在发现某些task执行特别慢的时候，可以在不等待完成的情况下被重新执行，最后相同的task只要有一个执行完了，那么最快执行完的那个结果就会被采纳。
+减少Shuffle。其实Spark的计算往往很快，但是大量开销都花在网络和IO上面，而shuffle就是一个典型。举个例子，如果(k, v1) join (k, v2) => (k, v3)，那么，这种情况其实Spark是优化得非常好的，因为需要join的都在一个node的一个partition里面，join很快完成，结果也是在同一个node（这一系列操作可以被放在同一个stage里面）。但是如果数据结构被设计为(obj1) join (obj2) => (obj3)，而其中的join条件为obj1.column1 == obj2.column1，这个时候往往就被迫shuffle了，因为不再有同一个key使得数据在同一个node上的强保证。在一定要shuffle的情况下，尽可能减少shuffle前的数据规模，比如这个避免groupByKey的例子。下面这个比较的图片来自Spark Summit 2013的一个演讲，讲的是同一件事情：
+
+Repartition。运算过程中数据量时大时小，选择合适的partition数量关系重大，如果太多partition就导致有很多小任务和空任务产生；如果太少则导致运算资源没法充分利用，必要时候可以使用repartition来调整，不过它也不是没有代价的，其中一个最主要代价就是shuffle。再有一个常见问题是数据大小差异太大，这种情况主要是数据的partition的key其实取值并不均匀造成的（默认使用HashPartitioner），需要改进这一点，比如重写hash算法。测试的时候想知道partition的数量可以调用rdd.partitions().size()获知。
+Task时间分布。关注Spark UI，在Stage的详情页面上，可以看得到shuffle写的总开销，GC时间，当前方法栈，还有task的时间花费。如果你发现task的时间花费分布太散，就是说有的花费时间很长，有的很短，这就说明计算分布不均，需要重新审视数据分片、key的hash、task内部的计算逻辑等等，瓶颈出现在耗时长的task上面。
+
+重用资源。有的资源申请开销巨大，而且往往相当有限，比如建立连接，可以考虑在partition建立的时候就创建好（比如使用mapPartition方法），这样对于每个partition内的每个元素的操作，就只要重用这个连接就好了，不需要重新建立连接。
+同时Spark的任务数量是由stage中的起始的所有RDD的partition之和数量决定，所以需要了解每个RDD的partition的计算方法。以Spark应用从HDFS读取数据为例，HadoopRDD的partition切分方法完全继承于MapReduce中的FileInputFormat，具体的partition数量由HDFS的块大小、mapred.min.split.size的大小、文件的压缩方式等多个因素决定，详情需要参见FileInputFormat的代码。
+1.1.3.6.	开启推测机制
+推测机制后，如果集群中，某一台机器的几个task特别慢，推测机制会将任务分配到其他机器执行，最后Spark会选取最快的作为最终结果。
+在spark-default.conf 中添加：spark.speculation true
+推测机制与以下几个参数有关：
+1. spark.speculation.interval 100：检测周期，单位毫秒；
+2. spark.speculation.quantile 0.75：完成task的百分比时启动推测；
+3. spark.speculation.multiplier 1.5：比其他的慢多少倍时启动推测。
+1.2.	Shuffle调优
+1.2.1.	调优概述
+    大多数Spark作业的性能主要就是消耗在了shuffle环节，因为该环节包含了大量的磁盘IO、序列化、网络数据传输等操作。
+因此，如果要让作业的性能更上一层楼，就有必要对shuffle过程进行调优。但是也必须提醒大家的是，影响一个Spark作业性能的因素，主要
+还是代码开发、资源参数以及数据倾斜，shuffle调优只能在整个Spark的性能调优中占到一小部分而已。因此大家务必把握住调优的基本原则，
+千万不要舍本逐末。下面我们就给大家详细讲解shuffle的原理，以及相关参数的说明，同时给出各个参数的调优建议。
+1.2.2.	ShuffleManager发展概述
+    在Spark的源码中，负责shuffle过程的执行、计算和处理的组件主要就是ShuffleManager，也即shuffle管理器。而随着Spark的版本的发展，ShuffleManager也在不断迭代，变得越来越先进。
+在Spark 1.2以前，默认的shuffle计算引擎是HashShuffleManager。该ShuffleManager有着一个非常严重的弊端，就是会产生大量的中间磁盘文件，进而由大量的磁盘IO操作影响了性能。
+因此在Spark 1.2以后的版本中，默认的ShuffleManager改成了SortShuffleManager。SortShuffleManager相较于HashShuffleManager来说，有了一定的改进。主要就在于，每个Task在进行shuffle操作时，虽然也会产生较多的临时磁盘文件，但是最后会将所有的临时文件合并（merge）成一个磁盘文件，因此每个Task就只有一个磁盘文件。在下一个stage的shuffle read task拉取自己的数据时，只要根据索引读取每个磁盘文件中的部分数据即可。
+下面我们详细分析一下HashShuffleManager和SortShuffleManager的原理。
+1.2.3.	HashShuffleManager运行原理
+    未经优化的HashShuffleManager
+下图说明了未经优化的HashShuffleManager的原理。这里我们先明确一个假设前提：每个Executor只有1个CPU core，也就是说，无论这个Executor上分配多少个task线程，同一时间都只能执行一个task线程。
+我们先从shuffle write开始说起。shuffle write阶段，主要就是在一个stage结束计算之后，为了下一个stage可以执行shuffle类的算子（比如reduceByKey），而将每个task处理的数据按key进行“分类”。所谓“分类”，就是对相同的key执行hash算法，从而将相同key都写入同一个磁盘文件中，而每一个磁盘文件都只属于下游stage的一个task。在将数据写入磁盘之前，会先将数据写入内存缓冲中，当内存缓冲填满之后，才会溢写到磁盘文件中去。
+那么每个执行shuffle write的task，要为下一个stage创建多少个磁盘文件呢？很简单，下一个stage的task有多少个，当前stage的每个task就要创建多少份磁盘文件。比如下一个stage总共有100个task，那么当前stage的每个task都要创建100份磁盘文件。如果当前stage有50个task，总共有10个Executor，每个Executor执行5个Task，那么每个Executor上总共就要创建500个磁盘文件，所有Executor上会创建5000个磁盘文件。由此可见，未经优化的shuffle write操作所产生的磁盘文件的数量是极其惊人的。
+接着我们来说说shuffle read。shuffle read，通常就是一个stage刚开始时要做的事情。此时该stage的每一个task就需要将上一个stage的计算结果中的所有相同key，从各个节点上通过网络都拉取到自己所在的节点上，然后进行key的聚合或连接等操作。由于shuffle write的过程中，task给下游stage的每个task都创建了一个磁盘文件，因此shuffle read的过程中，每个task只要从上游stage的所有task所在节点上，拉取属于自己的那一个磁盘文件即可。
+shuffle read的拉取过程是一边拉取一边进行聚合的。每个shuffle read task都会有一个自己的buffer缓冲，每次都只能拉取与buffer缓冲相同大小的数据，然后通过内存中的一个Map进行聚合等操作。聚合完一批数据后，再拉取下一批数据，并放到buffer缓冲中进行聚合操作。以此类推，直到最后将所有数据到拉取完，并得到最终的结果。
+
+优化后的HashShuffleManager
+下图说明了优化后的HashShuffleManager的原理。这里说的优化，是指我们可以设置一个参数，spark.shuffle.consolidateFiles。该参数默认值为false，将其设置为true即可开启优化机制。通常来说，如果我们使用HashShuffleManager，那么都建议开启这个选项。
+开启consolidate机制之后，在shuffle write过程中，task就不是为下游stage的每个task创建一个磁盘文件了。此时会出现shuffleFileGroup的概念，每个shuffleFileGroup会对应一批磁盘文件，磁盘文件的数量与下游stage的task数量是相同的。一个Executor上有多少个CPU core，就可以并行执行多少个task。而第一批并行执行的每个task都会创建一个shuffleFileGroup，并将数据写入对应的磁盘文件内。
+当Executor的CPU core执行完一批task，接着执行下一批task时，下一批task就会复用之前已有的shuffleFileGroup，包括其中的磁盘文件。也就是说，此时task会将数据写入已有的磁盘文件中，而不会写入新的磁盘文件中。因此，consolidate机制允许不同的task复用同一批磁盘文件，这样就可以有效将多个task的磁盘文件进行一定程度上的合并，从而大幅度减少磁盘文件的数量，进而提升shuffle write的性能。
+假设第二个stage有100个task，第一个stage有50个task，总共还是有10个Executor，每个Executor执行5个task。那么原本使用未经优化的HashShuffleManager时，每个Executor会产生500个磁盘文件，所有Executor会产生5000个磁盘文件的。但是此时经过优化之后，每个Executor创建的磁盘文件的数量的计算公式为：CPU core的数量 * 下一个stage的task数量。也就是说，每个Executor此时只会创建100个磁盘文件，所有Executor只会创建1000个磁盘文件。
+
+1.2.4.	SortShuffleManager运行原理
+SortShuffleManager的运行机制主要分成两种，一种是普通运行机制，另一种是bypass运行机制。
+       当shuffle read task的数量小于等于spark.shuffle.sort.bypassMergeThreshold参数的值时（默认为200），就会启用bypass机制。
+普通运行机制
+下图说明了普通的SortShuffleManager的原理。在该模式下，数据会先写入一个内存数据结构中，此时根据不同的shuffle算子，可能选用不同的数据结构。如果是reduceByKey这种聚合类的shuffle算子，那么会选用Map数据结构，一边通过Map进行聚合，一边写入内存；如果是join这种普通的shuffle算子，那么会选用Array数据结构，直接写入内存。接着，每写一条数据进入内存数据结构之后，就会判断一下，是否达到了某个临界阈值。如果达到临界阈值的话，那么就会尝试将内存数据结构中的数据溢写到磁盘，然后清空内存数据结构。
+在溢写到磁盘文件之前，会先根据key对内存数据结构中已有的数据进行排序。排序过后，会分批将数据写入磁盘文件。默认的batch数量是10000条，也就是说，排序好的数据，会以每批1万条数据的形式分批写入磁盘文件。写入磁盘文件是通过Java的BufferedOutputStream实现的。BufferedOutputStream是Java的缓冲输出流，首先会将数据缓冲在内存中，当内存缓冲满溢之后再一次写入磁盘文件中，这样可以减少磁盘IO次数，提升性能。
+一个task将所有数据写入内存数据结构的过程中，会发生多次磁盘溢写操作，也就会产生多个临时文件。最后会将之前所有的临时磁盘文件都进行合并，这就是merge过程，此时会将之前所有临时磁盘文件中的数据读取出来，然后依次写入最终的磁盘文件之中。此外，由于一个task就只对应一个磁盘文件，也就意味着该task为下游stage的task准备的数据都在这一个文件中，因此还会单独写一份索引文件，其中标识了下游各个task的数据在文件中的start offset与end offset。
+SortShuffleManager由于有一个磁盘文件merge的过程，因此大大减少了文件数量。比如第一个stage有50个task，总共有10个Executor，每个Executor执行5个task，而第二个stage有100个task。由于每个task最终只有一个磁盘文件，因此此时每个Executor上只有5个磁盘文件，所有Executor只有50个磁盘文件。
+
+bypass运行机制
+下图说明了bypass SortShuffleManager的原理。bypass运行机制的触发条件如下：
+shuffle map task数量小于spark.shuffle.sort.bypassMergeThreshold参数的值。
+不是聚合类的shuffle算子（比如reduceByKey）。
+此时task会为每个下游task都创建一个临时磁盘文件，并将数据按key进行hash然后根据key的hash值，将key写入对应的磁盘文件之中。当然，写入磁盘文件时也是先写入内存缓冲，缓冲写满之后再溢写到磁盘文件的。最后，同样会将所有临时磁盘文件都合并成一个磁盘文件，并创建一个单独的索引文件。
+该过程的磁盘写机制其实跟未经优化的HashShuffleManager是一模一样的，因为都要创建数量惊人的磁盘文件，只是在最后会做一个磁盘文件的合并而已。因此少量的最终磁盘文件，也让该机制相对未经优化的HashShuffleManager来说，shuffle read的性能会更好。
+而该机制与普通SortShuffleManager运行机制的不同在于：第一，磁盘写机制不同；第二，不会进行排序。也就是说，启用该机制的最大好处在于，shuffle write过程中，不需要进行数据的排序操作，也就节省掉了这部分的性能开销。
+
+1.2.5.	TungstenShuffle过程介绍
+Tungsten-sort 算不得一个全新的shuffle 方案，它在特定场景下基于类似现有的Sort Based Shuffle处理流程，对内存/CPU/Cache使用做了非常大的优化。带来高效的同时，也就限定了自己的使用场景。如果Tungsten-sort 发现自己无法处理，则会自动使用 Sort Based Shuffle进行处理。Tungsten 中文是钨丝的意思。 Tungsten Project 是 Databricks 公司提出的对Spark优化内存和CPU使用的计划，该计划初期似乎对Spark SQL优化的最多。不过部分RDD API 还有Shuffle也因此受益。
+Tungsten-sort优化点主要在三个方面:
+1)	直接在serialized binary data上sort而不是java objects，减少了memory的开销和GC的overhead。
+2)	提供cache-efficient sorter，使用一个8bytes的指针，把排序转化成了一个指针数组的排序。
+3)	spill的merge过程也无需反序列化即可完成
+这些优化的实现导致引入了一个新的内存管理模型，类似OS的Page，对应的实际数据结构为MemoryBlock,支持off-heap 以及 in-heap 两种模式。为了能够对Record 在这些MemoryBlock进行定位，引入了Pointer（指针）的概念。
+如果你还记得Sort Based Shuffle里存储数据的对象PartitionedAppendOnlyMap,这是一个放在JVM heap里普通对象，在Tungsten-sort中，他被替换成了类似操作系统内存页的对象。如果你无法申请到新的Page,这个时候就要执行spill操作，也就是写入到磁盘的操作。具体触发条件，和Sort Based Shuffle 也是类似的。
+Spark 默认开启的是Sort Based Shuffle,想要打开Tungsten-sort ,请设置
+spark.shuffle.manager=tungsten-sort
+对应的实现类是：
+org.apache.spark.shuffle.unsafe.UnsafeShuffleManager
+名字的来源是因为使用了大量JDK Sun Unsafe API。
+当且仅当下面条件都满足时，才会使用新的Shuffle方式：
+1)	Shuffle dependency 不能带有aggregation 或者输出需要排序
+2)	Shuffle 的序列化器需要是 KryoSerializer 或者 Spark SQL's 自定义的一些序列化方式.
+3)	Shuffle 文件的数量不能大于 16777216
+4)	序列化时，单条记录不能大于 128 MB
+可以看到，能使用的条件还是挺苛刻的。
+这些限制来源于哪里
+参看如下代码，page的大小：
+this.pageSizeBytes = (int) Math.min(PackedRecordPointer.MAXIMUM_PAGE_SIZE_BYTES,shuffleMemoryManager.pageSizeBytes());
+
+这就保证了页大小不超过PackedRecordPointer.MAXIMUM_PAGE_SIZE_BYTES 的值，该值就被定义成了128M。
+而产生这个限制的具体设计原因，我们还要仔细分析下Tungsten的内存模型:
+
+这张图其实画的是 on-heap 的内存逻辑图，其中 #Page 部分为13bit, Offset 为51bit,你会发现 2^51 >>128M的。但是在Shuffle的过程中，对51bit 做了压缩，使用了27bit,具体如下：
+ [24 bit partition number][13 bit memory page number][27 bit offset in page]
+这里预留出的24bit给了partition number,为了后面的排序用。上面的好几个限制其实都是因为这个指针引起的：
+一个是partition 的限制，前面的数字 16777216 就是来源于partition number 使用24bit 表示的。
+第二个是page number
+第三个是偏移量，最大能表示到2^27=128M。那一个task 能管理到的内存是受限于这个指针的，最多是 2^13 * 128M 也就是1TB左右。
+有了这个指针，我们就可以定位和管理到off-heap 或者 on-heap里的内存了。这个模型还是很漂亮的，内存管理也非常高效，记得之前的预估PartitionedAppendOnlyMap的内存是非常困难的，但是通过现在的内存管理机制，是非常快速并且精确的。
+对于第一个限制，那是因为后续Shuffle Write的sort 部分，只对前面24bit的partiton number 进行排序，key的值没有被编码到这个指针，所以没办法进行ordering
+同时，因为整个过程是追求不反序列化的，所以不能做aggregation。
+Shuffle Write
+核心类：
+ org.apache.spark.shuffle.unsafe.UnsafeShuffleWriter
+数据会通过 UnsafeShuffleExternalSorter.insertRecordIntoSorter 一条一条写入到 serOutputStream 序列化输出流。
+这里消耗内存的地方是
+ serBuffer = new MyByteArrayOutputStream(1024 * 1024)
+默认是1M,类似于Sort Based Shuffle 中的ExternalSorter，在Tungsten Sort 对应的为UnsafeShuffleExternalSorter,记录序列化后就通过sorter.insertRecord方法放到sorter里去了。
+这里sorter 负责申请Page,释放Page,判断是否要进行spill都这个类里完成。代码的架子其实和Sort Based 是一样的。
+ (另外，值得注意的是，这张图里进行spill操作的同时检查内存可用而导致的Exeception 的bug 已经在1.5.1版本被修复了,忽略那条路径)
+内存是否充足的条件依然shuffleMemoryManager 来决定，也就是所有task shuffle 申请的Page内存总和不能大于下面的值：
+ ExecutorHeapMemeory * 0.2 * 0.8
+上面的数字可通过下面两个配置来更改：
+spark.shuffle.memoryFraction=0.2
+spark.shuffle.safetyFraction=0.8
+UnsafeShuffleExternalSorter 负责申请内存，并且会生成该条记录最后的逻辑地址，也就前面提到的 Pointer。
+接着Record 会继续流转到UnsafeShuffleInMemorySorter中，这个对象维护了一个指针数组：
+  private long[] pointerArray;
+数组的初始大小为 4096，后续如果不够了，则按每次两倍大小进行扩充。
+假设100万条记录，那么该数组大约是8M 左右，所以其实还是很小的。一旦spill后该UnsafeShuffleInMemorySorter就会被赋为null,被回收掉。
+我们回过头来看spill,其实逻辑上也异常简单了，UnsafeShuffleInMemorySorter 会返回一个迭代器，该迭代器粒度每个元素就是一个指针，然后到根据该指针可以拿到真实的record,然后写入到磁盘，因为这些record 在一开始进入UnsafeShuffleExternalSorter 就已经被序列化了，所以在这里就纯粹变成写字节数组了。形成的结构依然和Sort Based Shuffle 一致，一个文件里不同的partiton的数据用fileSegment来表示，对应的信息存在一个index文件里。
+另外写文件的时候也需要一个 buffer :
+ spark.shuffle.file.buffer = 32k
+另外从内存里拿到数据放到DiskWriter,这中间还要有个中转，是通过
+ final byte[] writeBuffer = new byte[DISK_WRITE_BUFFER_SIZE=1024 * 1024];
+来完成的，都是内存，所以很快。
+Task结束前，我们要做一次mergeSpills操作，然后形成一个shuffle 文件。这里面其实也挺复杂的，
+如果开启了
+ `spark.shuffle.unsafe.fastMergeEnabled=true`
+并且没有开启
+`spark.shuffle.compress=true`
+或者压缩方式为：
+ LZFCompressionCodec
+则可以非常高效的进行合并,叫做transferTo。不过无论是什么合并，都不需要进行反序列化。
+Shuffle Read
+Shuffle Read 完全复用HashShuffleReader,具体参看 Sort-Based Shuffle。
+1.2.6.	shuffle相关参数调优
+以下是Shffule过程中的一些主要参数，这里详细讲解了各个参数的功能、默认值以及基于实践经验给出的调优建议。
+spark.shuffle.file.buffer
+默认值：32k
+参数说明：该参数用于设置shuffle write task的BufferedOutputStream的buffer缓冲大小。将数据写到磁盘文件之前，会先写入buffer缓冲中，待缓冲写满之后，才会溢写到磁盘。
+调优建议：如果作业可用的内存资源较为充足的话，可以适当增加这个参数的大小（比如64k），从而减少shuffle write过程中溢写磁盘文件的次数，也就可以减少磁盘IO次数，进而提升性能。在实践中发现，合理调节该参数，性能会有1%~5%的提升。
+spark.reducer.maxSizeInFlight
+默认值：48m
+参数说明：该参数用于设置shuffle read task的buffer缓冲大小，而这个buffer缓冲决定了每次能够拉取多少数据。
+调优建议：如果作业可用的内存资源较为充足的话，可以适当增加这个参数的大小（比如96m），从而减少拉取数据的次数，也就可以减少网络传输的次数，进而提升性能。在实践中发现，合理调节该参数，性能会有1%~5%的提升。
+spark.shuffle.io.maxRetries
+默认值：3
+参数说明：shuffle read task从shuffle write task所在节点拉取属于自己的数据时，如果因为网络异常导致拉取失败，是会自动进行重试的。该参数就代表了可以重试的最大次数。如果在指定次数之内拉取还是没有成功，就可能会导致作业执行失败。
+调优建议：对于那些包含了特别耗时的shuffle操作的作业，建议增加重试最大次数（比如60次），以避免由于JVM的full gc或者网络不稳定等因素导致的数据拉取失败。在实践中发现，对于针对超大数据量（数十亿~上百亿）的shuffle过程，调节该参数可以大幅度提升稳定性。
+spark.shuffle.io.retryWait
+默认值：5s
+参数说明：具体解释同上，该参数代表了每次重试拉取数据的等待间隔，默认是5s。
+调优建议：建议加大间隔时长（比如60s），以增加shuffle操作的稳定性。
+spark.shuffle.memoryFraction
+默认值：0.2
+参数说明：该参数代表了Executor内存中，分配给shuffle read task进行聚合操作的内存比例，默认是20%。
+调优建议：在资源参数调优中讲解过这个参数。如果内存充足，而且很少使用持久化操作，建议调高这个比例，给shuffle read的聚合操作更多内存，以避免由于内存不足导致聚合过程中频繁读写磁盘。在实践中发现，合理调节该参数可以将性能提升10%左右。
+spark.shuffle.manager
+默认值：sort
+参数说明：该参数用于设置ShuffleManager的类型。Spark 1.5以后，有三个可选项：hash、sort和tungsten-sort。HashShuffleManager是Spark 1.2以前的默认选项，但是Spark 1.2以及之后的版本默认都是SortShuffleManager了。tungsten-sort与sort类似，但是使用了tungsten计划中的堆外内存管理机制，内存使用效率更高。
+调优建议：由于SortShuffleManager默认会对数据进行排序，因此如果你的业务逻辑中需要该排序机制的话，则使用默认的SortShuffleManager就可以；而如果你的业务逻辑不需要对数据进行排序，那么建议参考后面的几个参数调优，通过bypass机制或优化的HashShuffleManager来避免排序操作，同时提供较好的磁盘读写性能。这里要注意的是，tungsten-sort要慎用，因为之前发现了一些相应的bug。
+spark.shuffle.sort.bypassMergeThreshold
+默认值：200
+参数说明：当ShuffleManager为SortShuffleManager时，如果shuffle read task的数量小于这个阈值（默认是200），则shuffle write过程中不会进行排序操作，而是直接按照未经优化的HashShuffleManager的方式去写数据，但是最后会将每个task产生的所有临时磁盘文件都合并成一个文件，并会创建单独的索引文件。
+调优建议：当你使用SortShuffleManager时，如果的确不需要排序操作，那么建议将这个参数调大一些，大于shuffle read task的数量。那么此时就会自动启用bypass机制，map-side就不会进行排序了，减少了排序的性能开销。但是这种方式下，依然会产生大量的磁盘文件，因此shuffle write性能有待提高。
+spark.shuffle.consolidateFiles
+默认值：false
+参数说明：如果使用HashShuffleManager，该参数有效。如果设置为true，那么就会开启consolidate机制，会大幅度合并shuffle write的输出文件，对于shuffle read task数量特别多的情况下，这种方法可以极大地减少磁盘IO开销，提升性能。
+调优建议：如果的确不需要SortShuffleManager的排序机制，那么除了使用bypass机制，还可以尝试将spark.shffle.manager参数手动指定为hash，使用HashShuffleManager，同时开启consolidate机制。在实践中尝试过，发现其性能比开启了bypass机制的SortShuffleManager要高出10%~30%。
+1.3.	程序开发开发调优
+Spark性能优化的第一步，就是要在开发Spark作业的过程中注意和应用一些性能优化的基本原则。开发调优，就是要让大家了解以下一些Spark基本开发原则，包括：RDD lineage设计、算子的合理使用、特殊操作的优化等。在开发过程中，时时刻刻都应该注意以上原则，并将这些原则根据具体的业务以及实际的应用场景，灵活地运用到自己的Spark作业中。
+1.3.1.	原则一：避免创建重复的RDD
+通常来说，我们在开发一个Spark作业时，首先是基于某个数据源（比如Hive表或HDFS文件）创建一个初始的RDD；接着对这个RDD执行某个算子操作，然后得到下一个RDD；以此类推，循环往复，直到计算出最终我们需要的结果。在这个过程中，多个RDD会通过不同的算子操作（比如map、reduce等）串起来，这个“RDD串”，就是RDD lineage，也就是“RDD的血缘关系链”。
+我们在开发过程中要注意：对于同一份数据，只应该创建一个RDD，不能创建多个RDD来代表同一份数据。
+一些Spark初学者在刚开始开发Spark作业时，或者是有经验的工程师在开发RDD lineage极其冗长的Spark作业时，可能会忘了自己之前对于某一份数据已经创建过一个RDD了，从而导致对于同一份数据，创建了多个RDD。这就意味着，我们的Spark作业会进行多次重复计算来创建多个代表相同数据的RDD，进而增加了作业的性能开销。
+一个简单的例子
+//需要对名为“hello.txt”的HDFS文件进行一次map操作，再进行一次reduce操作。
+//也就是说，需要对一份数据执行两次算子操作。
+//错误的做法：对于同一份数据执行多次算子操作时，创建多个RDD。
+//这里执行了两次textFile方法，针对同一个HDFS文件，创建了两个RDD出来，
+//然后分别对每个RDD都执行了一个算子操作。
+//这种情况下，Spark需要从HDFS上两次加载hello.txt文件的内容，并创建两个单独的RDD；
+//第二次加载HDFS文件以及创建RDD的性能开销，很明显是白白浪费掉的。
+
+val rdd1 = sc.textFile("hdfs://192.168.0.1:9000/hello.txt")
+rdd1.map(...)
+val rdd2 = sc.textFile("hdfs://192.168.0.1:9000/hello.txt")
+rdd2.reduce(...)
+
+//正确的用法：对于一份数据执行多次算子操作时，只使用一个RDD。
+//这种写法很明显比上一种写法要好多了，因为我们对于同一份数据只创建了一个RDD，
+//然后对这一个RDD执行了多次算子操作。
+//但是要注意到这里为止优化还没有结束，由于rdd1被执行了两次算子操作，第二次执行reduce操作的时候，
+//还会再次从源头处重新计算一次rdd1的数据，因此还是会有重复计算的性能开销。
+//要彻底解决这个问题，必须结合“原则三：对多次使用的RDD进行持久化”，
+//才能保证一个RDD被多次使用时只被计算一次。
+val rdd1 = sc.textFile("hdfs://192.168.0.1:9000/hello.txt")
+rdd1.map(...)
+rdd1.reduce(...)
+
+1.3.2.	原则二：尽可能复用同一个RDD
+除了要避免在开发过程中对一份完全相同的数据创建多个RDD之外，在对不同的数据执行算子操作时还要尽可能地复用一个RDD。比如说，有一个RDD的数据格式是key-value类型的，另一个是单value类型的，这两个RDD的value数据是完全一样的。那么此时我们可以只使用key-value类型的那个RDD，因为其中已经包含了另一个的数据。对于类似这种多个RDD的数据有重叠或者包含的情况，我们应该尽量复用一个RDD，这样可以尽可能地减少RDD的数量，从而尽可能减少算子执行的次数。
+一个简单的例子
+// 错误的做法。
+// 有一个<long , String>格式的RDD，即rdd1。
+// 接着由于业务需要，对rdd1执行了一个map操作，创建了一个rdd2，
+//而rdd2中的数据仅仅是rdd1中的value值而已，也就是说，rdd2是rdd1的子集。
+JavaPairRDD<long , String> rdd1 = ...
+JavaRDD<string> rdd2 = rdd1.map(...)
+
+// 分别对rdd1和rdd2执行了不同的算子操作。
+rdd1.reduceByKey(...)
+rdd2.map(...)
+
+// 正确的做法。
+// 上面这个case中，其实rdd1和rdd2的区别无非就是数据格式不同而已，
+//rdd2的数据完全就是rdd1的子集而已，却创建了两个rdd，并对两个rdd都执行了一次算子操作。
+// 此时会因为对rdd1执行map算子来创建rdd2，而多执行一次算子操作，进而增加性能开销。
+// 其实在这种情况下完全可以复用同一个RDD。
+// 我们可以使用rdd1，既做reduceByKey操作，也做map操作。
+// 在进行第二个map操作时，只使用每个数据的tuple._2，也就是rdd1中的value值，即可。
+
+JavaPairRDD<long , String> rdd1 = ...
+rdd1.reduceByKey(...)
+rdd1.map(tuple._2...)
+// 第二种方式相较于第一种方式而言，很明显减少了一次rdd2的计算开销。
+// 但是到这里为止，优化还没有结束，对rdd1我们还是执行了两次算子操作，rdd1实际上还是会被计算两次。
+// 因此还需要配合“原则三：对多次使用的RDD进行持久化”进行使用，
+//才能保证一个RDD被多次使用时只被计算一次。
+
+1.3.3.	原则三：对多次使用的RDD进行持久化
+当你在Spark代码中多次对一个RDD做了算子操作后，你已经实现Spark作业第一步的优化了，也就是尽可能复用RDD时就该在这个基础之上，进行第二步优化了，也就是要保证对一个RDD执行多次算子操作时，这个RDD本身仅仅被计算一次。
+Spark中对于一个RDD执行多次算子的默认原理是这样的：每次你对一个RDD执行一个算子操作时，都会重新从源头处计算一遍，计算出那个RDD来，然后再对这个RDD执行你的算子操作。这种方式的性能是很差的。
+因此对于这种情况，我们的建议是：对多次使用的RDD进行持久化。此时Spark就会根据你的持久化策略，将RDD中的数据保存到内存或者磁盘中。以后每次对这个RDD进行算子操作时，都会直接从内存或磁盘中提取持久化的RDD数据，然后执行算子，而不从源头处重新计算一遍这个RDD，再执行算子操作。
+对多次使用的RDD进行持久化的代码示例
+// 如果要对一个RDD进行持久化，只要对这个RDD调用cache()和persist()即可。
+// 正确的做法。
+// cache()方法表示：使用非序列化的方式将RDD中的数据全部尝试持久化到内存中。
+// 此时再对rdd1执行两次算子操作时，只有在第一次执行map算子时，才会将这个rdd1从源头处计算一次。
+// 第二次执行reduce算子时，就会直接从内存中提取数据进行计算，不会重复计算一个rdd。
+
+val rdd1 = sc.textFile("hdfs://192.168.0.1:9000/hello.txt").cache()
+rdd1.map(...)
+rdd1.reduce(...)
+
+// persist()方法表示：手动选择持久化级别，并使用指定的方式进行持久化。
+// 比如说，StorageLevel.MEMORY_AND_DISK_SER表示，内存充足时优先持久化到内存中，
+//内存不充足时持久化到磁盘文件中。
+// 而且其中的_SER后缀表示，使用序列化的方式来保存RDD数据，此时RDD中的每个partition
+//都会序列化成一个大的字节数组，然后再持久化到内存或磁盘中。
+// 序列化的方式可以减少持久化的数据对内存/磁盘的占用量，进而避免内存被持久化数据占用过多，
+//从而发生频繁GC。
+val rdd1 = sc.textFile("hdfs://192.168.0.1:9000/hello.txt")
+  .persist(StorageLevel.MEMORY_AND_DISK_SER)
+rdd1.map(...)
+rdd1.reduce(...)
+
+对于persist()方法而言，我们可以根据不同的业务场景选择不同的持久化级别。
+Spark的持久化级别
+
+    MEMORY_ONLY 使用未序列化的Java对象格式，将数据保存在内存中。如果内存不够存放所有的数据，则数据可能就不会进行持久化。那么下次对这个RDD执行算子操作时，那些没有被持久化的数据，需要从源头处重新计算一遍。这是默认的持久化策略，使用cache()方法时，实际就是使用的这种持久化策略。
+    MEMORY_AND_DISK 使用未序列化的Java对象格式，优先尝试将数据保存在内存中。如果内存不够存放所有的数据，会将数据写入磁盘文件中，下次对这个RDD执行算子时，持久化在磁盘文件中的数据会被读取出来使用。
+    MEMORY_ONLY_SER 基本含义同MEMORY_ONLY。唯一的区别是，会将RDD中的数据进行序列化，RDD的每个partition会被序列化成一个字节数组。这种方式更加节省内存，从而可以避免持久化的数据占用过多内存导致频繁GC。
+    MEMORY_AND_DISK_SER 基本含义同MEMORY_AND_DISK。唯一的区别是，会将RDD中的数据进行序列化，RDD的每个partition会被序列化成一个字节数组。这种方式更加节省内存，从而可以避免持久化的数据占用过多内存导致频繁GC。
+    DISK_ONLY 使用未序列化的Java对象格式，将数据全部写入磁盘文件中。
+    MEMORY_ONLY_2, MEMORY_AND_DISK_2, 等等. 对于上述任意一种持久化策略，如果加上后缀_2，代表的是将每个持久化的数据，都复制一份副本，并将副本保存到其他节点上。这种基于副本的持久化机制主要用于进行容错。假如某个节点挂掉，节点的内存或磁盘中的持久化数据丢失了，那么后续对RDD计算时还可以使用该数据在其他节点上的副本。如果没有副本的话，就只能将这些数据从源头处重新计算一遍了。
+
+如何选择一种最合适的持久化策略
+1、默认情况下，性能最高的当然是MEMORY_ONLY，但前提是你的内存必须足够足够大，可以绰绰有余地存放下整个RDD的所有数据。因为不进行序列化与反序列化操作，就避免了这部分的性能开销；对这个RDD的后续算子操作，都是基于纯内存中的数据的操作，不需要从磁盘文件中读取数据，性能也很高；而且不需要复制一份数据副本，并远程传送到其他节点上。但是这里必须要注意的是，在实际的生产环境中，恐怕能够直接用这种策略的场景还是有限的，如果RDD中数据比较多时（比如几十亿），直接用这种持久化级别，会导致JVM的OOM内存溢出异常。
+2、如果使用MEMORY_ONLY级别时发生了内存溢出，那么建议尝试使用MEMORY_ONLY_SER级别。该级别会将RDD数据序列化后再保存在内存中，此时每个partition仅仅是一个字节数组而已，大大减少了对象数量，并降低了内存占用。这种级别比MEMORY_ONLY多出来的性能开销，主要就是序列化与反序列化的开销。但是后续算子可以基于纯内存进行操作，因此性能总体还是比较高的。此外，可能发生的问题同上，如果RDD中的数据量过多的话，还是可能会导致OOM内存溢出的异常。
+3、如果纯内存的级别都无法使用，那么建议使用MEMORY_AND_DISK_SER策略，而不是MEMORY_AND_DISK策略。因为既然到了这一步，就说明RDD的数据量很大，内存无法完全放下。序列化后的数据比较少，可以节省内存和磁盘的空间开销。同时该策略会优先尽量尝试将数据缓存在内存中，内存缓存不下才会写入磁盘。
+4、通常不建议使用DISK_ONLY和后缀为_2的级别：因为完全基于磁盘文件进行数据的读写，会导致性能急剧降低，有时还不如重新计算一次所有RDD。后缀为_2的级别，必须将所有数据都复制一份副本，并发送到其他节点上，数据复制以及网络传输会导致较大的性能开销，除非是要求作业的高可用性，否则不建议使用。
+1.3.4.	原则四：尽量避免使用shuffle类算子
+如果有可能的话，要尽量避免使用shuffle类算子。因为Spark作业运行过程中，最消耗性能的地方就是shuffle过程。shuffle过程，简单来说，就是将分布在集群中多个节点上的同一个key，拉取到同一个节点上，进行聚合或join等操作。比如reduceByKey、join等算子，都会触发shuffle操作。
+shuffle过程中，各个节点上的相同key都会先写入本地磁盘文件中，然后其他节点需要通过网络传输拉取各个节点上的磁盘文件中的相同key。而且相同key都拉取到同一个节点进行聚合操作时，还有可能会因为一个节点上处理的key过多，导致内存不够存放，进而溢写到磁盘文件中。因此在shuffle过程中，可能会发生大量的磁盘文件读写的IO操作，以及数据的网络传输操作。磁盘IO和网络数据传输也是shuffle性能较差的主要原因。
+因此在我们的开发过程中，能避免则尽可能避免使用reduceByKey、join、distinct、repartition等会进行shuffle的算子，尽量使用map类的非shuffle算子。这样的话，没有shuffle操作或者仅有较少shuffle操作的Spark作业，可以大大减少性能开销。
+Broadcast与map进行join代码示例
+// 传统的join操作会导致shuffle操作。
+// 因为两个RDD中，相同的key都需要通过网络拉取到一个节点上，由一个task进行join操作。
+val rdd3 = rdd1.join(rdd2)
+// Broadcast+map的join操作，不会导致shuffle操作。
+// 使用Broadcast将一个数据量较小的RDD作为广播变量。
+val rdd2Data = rdd2.collect()
+val rdd2DataBroadcast = sc.broadcast(rdd2Data)
+// 在rdd1.map算子中，可以从rdd2DataBroadcast中，获取rdd2的所有数据。
+// 然后进行遍历，如果发现rdd2中某条数据的key与rdd1的当前数据的key是相同的，
+//那么就判定可以进行join。
+// 此时就可以根据自己需要的方式，将rdd1当前数据与rdd2中可以连接的数据，
+//拼接在一起（String或Tuple）。
+val rdd3 = rdd1.map(rdd2DataBroadcast...)
+// 注意，以上操作，建议仅仅在rdd2的数据量比较少（比如几百M，或者一两G）的情况下使用。
+// 因为每个Executor的内存中，都会驻留一份rdd2的全量数据。
+
+1.3.5.	原则五：使用map-side预聚合的shuffle操作
+如果因为业务需要，一定要使用shuffle操作，无法用map类的算子来替代，那么尽量使用可以map-side预聚合的算子。
+所谓的map-side预聚合，说的是在每个节点本地对相同的key进行一次聚合操作，类似于MapReduce中的本地combiner。map-side预聚合之后，每个节点本地就只会有一条相同的key，因为多条相同的key都被聚合起来了。其他节点在拉取所有节点上的相同key时，就会大大减少需要拉取的数据数量，从而也就减少了磁盘IO以及网络传输开销。通常来说，在可能的情况下，建议使用reduceByKey或者aggregateByKey算子来替代掉groupByKey算子。因为reduceByKey和aggregateByKey算子都会使用用户自定义的函数对每个节点本地的相同key进行预聚合。而groupByKey算子是不会进行预聚合的，全量的数据会在集群的各个节点之间分发和传输，性能相对来说比较差。
+比如下图，就是典型的例子，分别基于reduceByKey和groupByKey进行单词计数。其中第一张图是groupByKey的原理图，可以看到，没有进行任何本地聚合时，所有数据都会在集群节点之间传输；第二张图是reduceByKey的原理图，可以看到，每个节点本地的相同key数据，都进行了预聚合，然后才传输到其他节点上进行全局聚合。
+
+1.3.6.	原则六：使用高性能的算子
+除了shuffle相关的算子有优化原则之外，其他的算子也都有着相应的优化原则。
+使用reduceByKey/aggregateByKey替代groupByKey
+详情见“原则五：使用map-side预聚合的shuffle操作”。
+使用mapPartitions替代普通map
+mapPartitions类的算子，一次函数调用会处理一个partition所有的数据，而不是一次函数调用处理一条，性能相对来说会高一些。但是有的时候，使用mapPartitions会出现OOM（内存溢出）的问题。因为单次函数调用就要处理掉一个partition所有的数据，如果内存不够，垃圾回收时是无法回收掉太多对象的，很可能出现OOM异常。所以使用这类操作时要慎重！
+使用foreachPartitions替代foreach
+原理类似于“使用mapPartitions替代map”，也是一次函数调用处理一个partition的所有数据，而不是一次函数调用处理一条数据。在实践中发现，foreachPartitions类的算子，对性能的提升还是很有帮助的。比如在foreach函数中，将RDD中所有数据写MySQL，那么如果是普通的foreach算子，就会一条数据一条数据地写，每次函数调用可能就会创建一个数据库连接，此时就势必会频繁地创建和销毁数据库连接，性能是非常低下；但是如果用foreachPartitions算子一次性处理一个partition的数据，那么对于每个partition，只要创建一个数据库连接即可，然后执行批量插入操作，此时性能是比较高的。实践中发现，对于1万条左右的数据量写MySQL，性能可以提升30%以上。
+使用filter之后进行coalesce操作
+通常对一个RDD执行filter算子过滤掉RDD中较多数据后（比如30%以上的数据），建议使用coalesce算子，手动减少RDD的partition数量，将RDD中的数据压缩到更少的partition中去。因为filter之后，RDD的每个partition中都会有很多数据被过滤掉，此时如果照常进行后续的计算，其实每个task处理的partition中的数据量并不是很多，有一点资源浪费，而且此时处理的task越多，可能速度反而越慢。因此用coalesce减少partition数量，将RDD中的数据压缩到更少的partition之后，只要使用更少的task即可处理完所有的partition。在某些场景下，对于性能的提升会有一定的帮助。
+使用repartitionAndSortWithinPartitions替代repartition与sort类操作
+repartitionAndSortWithinPartitions是Spark官网推荐的一个算子，官方建议，如果需要在repartition重分区之后，还要进行排序，建议直接使用repartitionAndSortWithinPartitions算子。因为该算子可以一边进行重分区的shuffle操作，一边进行排序。shuffle与sort两个操作同时进行，比先shuffle再sort来说，性能可能是要高的。
+1.3.7.	原则七：广播大变量
+有时在开发过程中，会遇到需要在算子函数中使用外部变量的场景（尤其是大变量，比如100M以上的大集合），那么此时就应该使用Spark的广播（Broadcast）功能来提升性能。
+在算子函数中使用到外部变量时，默认情况下，Spark会将该变量复制多个副本，通过网络传输到task中，此时每个task都有一个变量副本。如果变量本身比较大的话（比如100M，甚至1G），那么大量的变量副本在网络中传输的性能开销，以及在各个节点的Executor中占用过多内存导致的频繁GC，都会极大地影响性能。
+因此对于上述情况，如果使用的外部变量比较大，建议使用Spark的广播功能，对该变量进行广播。广播后的变量，会保证每个Executor的内存中，只驻留一份变量副本，而Executor中的task执行时共享该Executor中的那份变量副本。这样的话，可以大大减少变量副本的数量，从而减少网络传输的性能开销，并减少对Executor内存的占用开销，降低GC的频率。
+广播大变量的代码示例
+// 以下代码在算子函数中，使用了外部的变量。
+// 此时没有做任何特殊操作，每个task都会有一份list1的副本。
+val list1 = ...
+rdd1.map(list1...)
+// 以下代码将list1封装成了Broadcast类型的广播变量。
+// 在算子函数中，使用广播变量时，首先会判断当前task所在Executor内存中，是否有变量副本。
+// 如果有则直接使用；如果没有则从Driver或者其他Executor节点上远程拉取一份放到本地Executor内存中。
+// 每个Executor内存中，就只会驻留一份广播变量副本。
+val list1 = ...
+val list1Broadcast = sc.broadcast(list1)
+rdd1.map(list1Broadcast...)
+
+1.3.8.	原则八：使用Kryo优化序列化性能
+在Spark中，主要有三个地方涉及到了序列化：
+1、在算子函数中使用到外部变量时，该变量会被序列化后进行网络传输（见“原则七：广播大变量”中的讲解）。
+2、将自定义的类型作为RDD的泛型类型时（比如JavaRDD，Student是自定义类型），所有自定义类型对象，都会进行序列化。因此这种情况下，也要求自定义的类必须实现Serializable接口。
+3、使用可序列化的持久化策略时（比如MEMORY_ONLY_SER），Spark会将RDD中的每个partition都序列化成一个大的字节数组。
+对于这三种出现序列化的地方，我们都可以通过使用Kryo序列化类库，来优化序列化和反序列化的性能。Spark默认使用的是Java的序列化机制，也就是ObjectOutputStream/ObjectInputStream API来进行序列化和反序列化。但是Spark同时支持使用Kryo序列化库，Kryo序列化类库的性能比Java序列化类库的性能要高很多。官方介绍，Kryo序列化机制比Java序列化机制，性能高10倍左右。Spark之所以默认没有使用Kryo作为序列化类库，是因为Kryo要求最好要注册所有需要进行序列化的自定义类型，因此对于开发者来说，这种方式比较麻烦。
+以下是使用Kryo的代码示例，我们只要设置序列化类，再注册要序列化的自定义类型即可（比如算子函数中使用到的外部变量类型、作为RDD泛型类型的自定义类型等）：
+// 创建SparkConf对象。
+val conf = new SparkConf().setMaster(...).setAppName(...)
+// 设置序列化器为KryoSerializer。
+conf.set("spark.serializer", "org.apache.spark.serializer.KryoSerializer")
+// 注册要序列化的自定义类型。
+conf.registerKryoClasses(Array(classOf[MyClass1], classOf[MyClass2]))
+
+1.3.9.	原则九：优化数据结构
+Java中，有三种类型比较耗费内存：
+1、对象，每个Java对象都有对象头、引用等额外的信息，因此比较占用内存空间。
+2、字符串，每个字符串内部都有一个字符数组以及长度等额外信息。
+3、集合类型，比如HashMap、LinkedList等，因为集合类型内部通常会使用一些内部类来封装集合元素，比如Map.Entry。
+因此Spark官方建议，在Spark编码实现中，特别是对于算子函数中的代码，尽量不要使用上述三种数据结构，尽量使用字符串替代对象，使用原始类型（比如Int、Long）替代字符串，使用数组替代集合类型，这样尽可能地减少内存占用，从而降低GC频率，提升性能。
+1.4.	运行资源调优
+1.4.1.	调优概述
+在开发完Spark作业之后，就该为作业配置合适的资源了。Spark的资源参数，基本都可以在spark-submit命令中作为参数设置。很多Spark初学者，通常不知道该设置哪些必要的参数，以及如何设置这些参数，最后就只能胡乱设置，甚至压根儿不设置。资源参数设置的不合理，可能会导致没有充分利用集群资源，作业运行会极其缓慢；或者设置的资源过大，队列没有足够的资源来提供，进而导致各种异常。总之，无论是哪种情况，都会导致Spark作业的运行效率低下，甚至根本无法运行。因此我们必须对Spark作业的资源使用原理有一个清晰的认识，并知道在Spark作业运行过程中，有哪些资源参数是可以设置的，以及如何设置合适的参数值。
+1.4.2.	Spark作业基本运行原理
+
+详细原理见上图。我们使用spark-submit提交一个Spark作业之后，这个作业就会启动一个对应的Driver进程。根据你使用的部署模式（deploy-mode）不同，Driver进程可能在本地启动，也可能在集群中某个工作节点上启动。Driver进程本身会根据我们设置的参数，占有一定数量的内存和CPU core。而Driver进程要做的第一件事情，就是向集群管理器（可以是Spark Standalone集群，也可以是其他的资源管理集群，美团、大众点评使用的是YARN作为资源管理集群）申请运行Spark作业需要使用的资源，这里的资源指的就是Executor进程。YARN集群管理器会根据我们为Spark作业设置的资源参数，在各个工作节点上，启动一定数量的Executor进程，每个Executor进程都占有一定数量的内存和CPU core。
+在申请到了作业执行所需的资源之后，Driver进程就会开始调度和执行我们编写的作业代码了。Driver进程会将我们编写的Spark作业代码分拆为多个stage，每个stage执行一部分代码片段，并为每个stage创建一批task，然后将这些task分配到各个Executor进程中执行。task是最小的计算单元，负责执行一模一样的计算逻辑（也就是我们自己编写的某个代码片段），只是每个task处理的数据不同而已。一个stage的所有task都执行完毕之后，会在各个节点本地的磁盘文件中写入计算中间结果，然后Driver就会调度运行下一个stage。下一个stage的task的输入数据就是上一个stage输出的中间结果。如此循环往复，直到将我们自己编写的代码逻辑全部执行完，并且计算完所有的数据，得到我们想要的结果为止。
+Spark是根据shuffle类算子来进行stage的划分。如果我们的代码中执行了某个shuffle类算子（比如reduceByKey、join等），那么就会在该算子处，划分出一个stage界限来。可以大致理解为，shuffle算子执行之前的代码会被划分为一个stage，shuffle算子执行以及之后的代码会被划分为下一个stage。因此一个stage刚开始执行的时候，它的每个task可能都会从上一个stage的task所在的节点，去通过网络传输拉取需要自己处理的所有key，然后对拉取到的所有相同的key使用我们自己编写的算子函数执行聚合操作（比如reduceByKey()算子接收的函数）。这个过程就是shuffle。
+当我们在代码中执行了cache/persist等持久化操作时，根据我们选择的持久化级别的不同，每个task计算出来的数据也会保存到Executor进程的内存或者所在节点的磁盘文件中。
+因此Executor的内存主要分为三块：第一块是让task执行我们自己编写的代码时使用，默认是占Executor总内存的20%；第二块是让task通过shuffle过程拉取了上一个stage的task的输出后，进行聚合等操作时使用，默认也是占Executor总内存的20%；第三块是让RDD持久化时使用，默认占Executor总内存的60%。
+task的执行速度是跟每个Executor进程的CPU core数量有直接关系的。一个CPU core同一时间只能执行一个线程。而每个Executor进程上分配到的多个task，都是以每个task一条线程的方式，多线程并发运行的。如果CPU core数量比较充足，而且分配到的task数量比较合理，那么通常来说，可以比较快速和高效地执行完这些task线程。
+以上就是Spark作业的基本运行原理的说明，大家可以结合上图来理解。理解作业基本原理，是我们进行资源参数调优的基本前提。
+1.4.3.	资源参数调优
+了解完了Spark作业运行的基本原理之后，对资源相关的参数就容易理解了。所谓的Spark资源参数调优，其实主要就是对Spark运行过程中各个使用资源的地方，通过调节各种参数，来优化资源使用的效率，从而提升Spark作业的执行性能。以下参数就是Spark中主要的资源参数，每个参数都对应着作业运行原理中的某个部分，我们同时也给出了一个调优的参考值。
+num-executors
+参数说明：该参数用于设置Spark作业总共要用多少个Executor进程来执行。Driver在向YARN集群管理器申请资源时，YARN集群管理器会尽可能按照你的设置来在集群的各个工作节点上，启动相应数量的Executor进程。这个参数非常之重要，如果不设置的话，默认只会给你启动少量的Executor进程，此时你的Spark作业的运行速度是非常慢的。
+参数调优建议：每个Spark作业的运行一般设置50~100个左右的Executor进程比较合适，设置太少或太多的Executor进程都不好。设置的太少，无法充分利用集群资源；设置的太多的话，大部分队列可能无法给予充分的资源。
+executor-memory
+参数说明：该参数用于设置每个Executor进程的内存。Executor内存的大小，很多时候直接决定了Spark作业的性能，而且跟常见的JVM OOM异常，也有直接的关联。
+参数调优建议：每个Executor进程的内存设置4G~8G较为合适。但是这只是一个参考值，具体的设置还是得根据不同部门的资源队列来定。可以看看自己团队的资源队列的最大内存限制是多少，num-executors乘以executor-memory，是不能超过队列的最大内存量的。此外，如果你是跟团队里其他人共享这个资源队列，那么申请的内存量最好不要超过资源队列最大总内存的1/3~1/2，避免你自己的Spark作业占用了队列所有的资源，导致别的同学的作业无法运行。
+executor-cores
+参数说明：该参数用于设置每个Executor进程的CPU core数量。这个参数决定了每个Executor进程并行执行task线程的能力。因为每个CPU core同一时间只能执行一个task线程，因此每个Executor进程的CPU core数量越多，越能够快速地执行完分配给自己的所有task线程。
+参数调优建议：Executor的CPU core数量设置为2~4个较为合适。同样得根据不同部门的资源队列来定，可以看看自己的资源队列的最大CPU core限制是多少，再依据设置的Executor数量，来决定每个Executor进程可以分配到几个CPU core。同样建议，如果是跟他人共享这个队列，那么num-executors * executor-cores不要超过队列总CPU core的1/3~1/2左右比较合适，也是避免影响其他同学的作业运行。
+driver-memory
+参数说明：该参数用于设置Driver进程的内存。
+参数调优建议：Driver的内存通常来说不设置，或者设置1G左右应该就够了。唯一需要注意的一点是，如果需要使用collect算子将RDD的数据全部拉取到Driver上进行处理，那么必须确保Driver的内存足够大，否则会出现OOM内存溢出的问题。
+spark.default.parallelism
+参数说明：该参数用于设置每个stage的默认task数量。这个参数极为重要，如果不设置可能会直接影响你的Spark作业性能。
+参数调优建议：Spark作业的默认task数量为500~1000个较为合适。很多同学常犯的一个错误就是不去设置这个参数，那么此时就会导致Spark自己根据底层HDFS的block数量来设置task的数量，默认是一个HDFS block对应一个task。通常来说，Spark默认设置的数量是偏少的（比如就几十个task），如果task数量偏少的话，就会导致你前面设置好的Executor的参数都前功尽弃。试想一下，无论你的Executor进程有多少个，内存和CPU有多大，但是task只有1个或者10个，那么90%的Executor进程可能根本就没有task执行，也就是白白浪费了资源！因此Spark官网建议的设置原则是，设置该参数为num-executors * executor-cores的2~3倍较为合适，比如Executor的总CPU core数量为300个，那么设置1000个task是可以的，此时可以充分地利用Spark集群的资源。
+spark.storage.memoryFraction
+参数说明：该参数用于设置RDD持久化数据在Executor内存中能占的比例，默认是0.6。也就是说，默认Executor 60%的内存，可以用来保存持久化的RDD数据。根据你选择的不同的持久化策略，如果内存不够时，可能数据就不会持久化，或者数据会写入磁盘。
+参数调优建议：如果Spark作业中，有较多的RDD持久化操作，该参数的值可以适当提高一些，保证持久化的数据能够容纳在内存中。避免内存不够缓存所有的数据，导致数据只能写入磁盘中，降低了性能。但是如果Spark作业中的shuffle类操作比较多，而持久化操作比较少，那么这个参数的值适当降低一些比较合适。此外，如果发现作业由于频繁的gc导致运行缓慢（通过spark web ui可以观察到作业的gc耗时），意味着task执行用户代码的内存不够用，那么同样建议调低这个参数的值。
+spark.shuffle.memoryFraction
+参数说明：该参数用于设置shuffle过程中一个task拉取到上个stage的task的输出后，进行聚合操作时能够使用的Executor内存的比例，默认是0.2。也就是说，Executor默认只有20%的内存用来进行该操作。shuffle操作在进行聚合时，如果发现使用的内存超出了这个20%的限制，那么多余的数据就会溢写到磁盘文件中去，此时就会极大地降低性能。
+参数调优建议：如果Spark作业中的RDD持久化操作较少，shuffle操作较多时，建议降低持久化操作的内存占比，提高shuffle操作的内存占比比例，避免shuffle过程中数据过多时内存不够用，必须溢写到磁盘上，降低了性能。此外，如果发现作业由于频繁的gc导致运行缓慢，意味着task执行用户代码的内存不够用，那么同样建议调低这个参数的值。
+资源参数的调优，没有一个固定的值，需要同学们根据自己的实际情况（包括Spark作业中的shuffle操作数量、RDD持久化操作数量以及spark web ui中显示的作业gc情况），同时参考给出的原理以及调优建议，合理地设置上述参数。
+资源参数参考示例
+以下是一份spark-submit命令的示例，大家可以参考一下，并根据自己的实际情况进行调节：
+./bin/spark-submit \
+  --master yarn-cluster \
+  --num-executors 100 \
+  --executor-memory 6G \
+  --executor-cores 4 \
+  --driver-memory 1G \
+  --conf spark.default.parallelism=1000 \
+  --conf spark.storage.memoryFraction=0.5 \
+  --conf spark.shuffle.memoryFraction=0.3 \
+
+
+14.你们的项目都做了哪些优化?各种调优详细解释
+
+spark性能调优：
+解决性能调优的最简单的就是分配更多的资源；如果在资源固定的情况下再去考虑我们的代码和程序
+我们可以在spark-submit shell脚本中 设置
+num-executor
+driver-memory
+executor-memory
+executor-core
+这些数量可以适当的调节，根据自己的内存大小调节
+有一个原则，你能使用的资源有多大，就尽量调节到最大的大小（executor的数量，几十个到上百个不等，executor内存；executor cup core）
+调节executor中的core，要适中，根据自己的task数量来分配相符合的core
+设置并行度：spark.default.parallelism  参数
+
+设置公用的RDD持久化（将RDD放入缓存中/磁盘）但是如果数据过大的话，可能会导致OOM内存溢出，这时候我们要使用序例化，也就是将RDD每个partition的数据序例化成大的字节数组，大大减少内存空间的占用，缺点就是需要反序例化；如果序例化后还出现OOM，那么我们就要往磁盘上存储；如果还是OOM，那么只能内存加上磁盘然后在序例化；
+
+还可以使用广播变量，广播出去，广播变量初始的时候，在driver中有一份数据，当task在运行时，想要用广播出去的变量数据，此时会在自己本地executor中对应的executorManage中尝试获取变量副本，如果没有的话，executorManage会去driver中通过网络拉去一份，下一次task在用的时候就有副本了，executorManage也有可能会去其他executor上拉去副本，但是前提是离得很近的情况下；
+
+spark内部也有自己的性能优化，kryo可以对我们的数据进行序例化优化，他序例化的内存占用是java的十分之一的大小，可以大大提高性能，可以在算子函数中使用到的外部变量使用，减少网络传输的开销和占用内存的消耗，提高性能，也可以在持久化RDD优化内存的占用和消耗，减少task执行是创建对象内存占满，导致频繁的GC，还有就是在shuffle的时候，可以提高网络传输的消耗，提高性能；
+要使用它的话就就要注册自己自定义的类
+
+数据本地化有三种情况，
+第一种是最好的，就是数据本地化，这种可以直接在内存中拉去数据（PROESS_LOCAL）
+然后使用跨节点的方式，通过网络传输拉去数据
+最差的就是跨机架的模式，第三种是最消耗IO的模式，因为跨机架网络传输消耗太大
+如何调节 spark.locality.wait  默认是3秒 观察日志，适量调节
+spark.locality.wait.process
+spark.locality.wait.node
+spark.locality.wait.rack
+
+
+JVM性能调优:
+	内存不足时候会导致minor gc频繁，导致spark停止工作
+	频繁进行gc的时候，可能有些年轻代里面的对象应该被回收，但是因为内存性能不足，导致传入老年代里面，老年代里面如果内存溢满，那么就会进行full gc 也就是全局清理，那么full gc是很消耗时间，少则十几秒，多则几十分钟，这就导致spark性能作业大大降低。
+那么如何调优呢？
+降低cache操作的内存占比大不了用persist操作，现在一部分数据写入磁盘，或者序例化，配合kryo使用，减少RDD缓存的内存占用，减低cache操作的内存占用，对应的算子函数的内存占比就提升上去了，可以减少频繁的gc操作，简单说就是让task执行算子函数的时候，有更多的内存可以使用
+spark.storage.memoryFraction,0.6   cache的默认占用内存是60%，可以根据自己的情况来调节
+
+executor堆外内存的设置，如果我们出现shuffle output file not found 的错误那么我们就要调节一下堆外内存，--conf spark.yarn.executor.memoryOverhead=2048（基于yarn的提交模式）
+这个参数不是在sparkContext的代码中调节，而是在spark-submit脚本中添加，这个参数调节上去以后，会避免oom内存溢出的问题
+
+偶尔也有可能会出现连接等待超时，因为executor跨界点拉取数据的时候，可能另一个executor正在jvm垃圾回收（所有线程停止），导致连接失败会报 （sjkdfds-3231sdf-232df）not found，这时候我们要调节连接参数，要在spark-submit脚本中调节
+spark.core.connection.ack.wait.timeout=300 调节这个值比较大的时候，通常可以避免某某文件lost掉了
+
+
+shuffle性能调优：
+设置map输出文件的合并设置参数  .set("spark.shuffle.consolidateFile","true")，默认是不开启的，设置true开启，注意一点，就是无法并发执行
+设置map端的内存缓冲区大小，和reduce端内存的大小，这个主要针对文件太大，导致性能效率低，但是调优不是特别明显
+map端参数：.set("spark.shuffle.file.buffer","64k")
+reduce端参数：.set("spark.shuffle.memoryFraction","0.3")
+这两个参数根据我们观察日志的读写文件的多少来调节，适量调节，如果是stand-load模式 观察4040的页面，如果是yarn模式直接进入yarn UIlog日志
+
+当我们在shuffle过程中，要进行排序可以选择sortshuffleManager（默认的）
+"spark.shuffle.manager","sort"
+如果我们不需要排序的话，也可以用hashshufflemanager模式，然后要实现consolidate机制
+"spark.shuffle.manager","hash"
+在spark 1.5版本以后出现一个新的模式，就是钨丝Manager（tungsten-sort）这种模式内部有自己的内存机制，可以有效的防止OOm内存溢出
+"spark.shuffle.manager","tungsten-sort"
+还用一种是我们想用sortshuffleManager模式，但是不想让他排序，那么就要设置reduce合并文件参数
+"spark.shuffle.sort.bypassMergeThreshold","550"(默认数量是200，如果不想进行排序的话就要调大文件合并数量)
+
+Mappartitions方法，表示计算一个分区的数据，就是将一个分区内的数据，可以提高执行性能，但是也有缺点，如果将task内的数据全部放入Mappartition进行计算，那么数据量过大的话就会造成内存溢出，OOM了
+
+coalesce算子可以缩减partition数量
+
+设置并行度，spark.defafult.parallelism,100，但是我们用sparkSQL的话，这样设置就会失效；这是怎么办？那我们要用repartition这个算子，进行自定义分区
+
+reduceByKey也可以对性能提升（在本地进行combiner操作），主要用类似于单词统计这样的模式
+
+troubleshooting：
+reduce端缓冲（buffer）大小避免OOM，当map端的task输出量特别大，那么我们适当的减小，以性能换执行方式
+spark.reducer.maxSizwInFlight,48m 默认就是48m
+
+spark作业中 常见的报错情况（shuffle file not found）也就是说，你上一个进程正在gc 但是下一个拉去的时候，拉去数据没拉去到，就会报这样一个异常
+解决办法：调节参数 spark.shuffle.io.maxRetries 3 默认三次 这个参数就是说默认尝试拉去失败3次
+spark.shuffle.io.retryWait 5s  这个参数是每次重新拉去时间的间隔，默认是5秒 这两个参数都可以适当的增大 避免出现这样错
+

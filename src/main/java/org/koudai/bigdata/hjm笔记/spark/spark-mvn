@@ -1,0 +1,434 @@
+day01
+1.什么是Spark?
+Spark是一种快速.通用,可扩展的大数据分析引擎.
+
+2.为什么要学Spark?
+Spark是MapReduce的替代方案,兼容HDFS,Hive,可融入Hadoop的生态系统,以弥补MapReduce的不足
+
+3.Spark特点:快,易用,通用,兼容性
+
+4.如果启动spark shell时没有指定master地址，但是也可以正常启动spark shell和执行spark shell中的程序，
+其实是启动了spark的local模式，该模式仅在本机启动一个进程，没有与集群建立联系
+
+5.Spark中的Driver端:即Client端
+
+6.Worker只能计算,不能存储.Worker Id是自动分配的,不需要指定
+
+7.SparkWordCount程序!
+    val conf = new SparkConf().setAppName("sparkwc").setMaster("local[2]") //2个线程模拟集群 local[*]:调用系统所有线程
+       //setMaster用的是本地模式测试,如果打包用集群测试要注释掉
+    val sc = new SparkContext(conf) //创建上下文对象(也叫提交集群入口类)
+    val lines:RDD[String] = sc.textFile("hdfs://min1:8020/wc")//获取Hdfs数据
+    val words:RDD[String] = lines.flatMap(_.split(" ")//进行切分,flatMap将元素打散到一个集合中
+    val tup :RDD[(String,Int)] = words.map((_,1))//生成对偶元组
+    val sumed :RDD[(String,Int)] = tup.reduceByKey(_+_)//聚合操作 方式一
+    val sumed2:RDD[(String,Int)] = tup.reduceByKey((x,y)=>x+y) //方式二
+
+    //降序排序(如统计访问量)
+    val sorted = sumed.sortBy(_._2,false)
+    val sorted = sumed.sortBy(x=x._2,false)//方式二
+
+    println(sorted.collect.toBuffer)//调用toBuffer打印数组里的元素,打印方式一
+    sorted.foreach(println)//打印方式二
+
+    sorted.saveAsTextFile("hdfs://min1:8020/output")
+    sc.stop()//释放资源
+
+8.object:单例对象 里面可以声明方法,作为入口类的入口方法
+
+9.scala语言是强类型语言!使用变量前先定义类型!
+
+10.提交任务
+spark-submit \
+--class com.qf.spark.day01.SparkWC \
+--master spark://min1:7077 \
+--executor-memory 512m \
+--total-executor-cores 2 \
+/root/1.jar //后面可以有参数,取决于程序写法
+//此处不加--jars, --jars是用来加载驱动jar包的!
+
+11.javaSparkWordCount
+
+12.调试 加断点 Debug Alt+F8 观察:如lines.collect
+
+
+13.概念:弹性分布式数据集RDD
+1.什么是RDD
+ RDD(Resilient Distributed Dataset)叫做分布式数据集,是Spark中最基本的数据抽象,
+ 它代表一个不可变,可分区,里面的元素可并行计算的集合.
+ RDD具有数据流模型的特点:自动容错,位置感知性调度和可伸缩性.
+ RDD允许用户在执行多个查询时显式地将工作集缓存在内存中,后续的查询能够重用工作集,
+ 这极大地提升了查询速度.
+
+ 2.RDD的属性
+ (1)一组分片(Partition),即数据集的基本组成单位.对于RDD来说,每个分片都会被一个
+ 计算任务处理,并决定并行计算的粒度.用户可以在创建RDD时指定RDD的分片个数,如果没
+ 有指定,那么会采用默认值,默认值就是程序所分配的CPU Cord的数目
+ (2)一个计算每个分区的函数.Spark中RDD的计算是以分片为单位的,每个RDD都会实现compute
+ 函数以达到这个目的.compute函数会对迭代器进行复合,不需要保存每个计算的结果.
+ (3)RDD之间的依赖关系。RDD的每次转换都会生成一个新的RDD，所以RDD之间就会形成类似于
+ 流水线一样的前后依赖关系。在部分分区数据丢失时，Spark可以通过这个依赖关系重新计算
+ 丢失的分区数据，而不是对RDD的所有分区进行重新计算
+ (4)一个Partitioner，即RDD的分片函数。当前Spark中实现了两种类型的分片函数，一个是
+ 基于哈希的HashPartitioner，另外一个是基于范围的RangePartitioner。只有对于key-value
+ 的RDD，才会有Partitioner，非key-value的RDD的Parititioner的值是None。
+ Partitioner函数不但决定了RDD本身的分片数量，也决定了parent RDD Shuffle输出时的分片数量。
+ (5）一个列表，存储存取每个Partition的优先位置（preferred location）。对于一个HDFS文件来说，
+ 这个列表保存的就是每个Partition所在的块的位置。按照“移动数据不如移动计算”的理念，
+ Spark在进行任务调度的时候，会尽可能地将计算任务分配到其所要处理数据块的存储位置。
+
+14.生成rdd的两种方式
+    1.通过外部存储系统的数据集创建,包括本地的文件系统,还有所有Hadoop支持的数据集
+    val rdd1 = sc.textFile("hdfs://min1:8020/wc")
+
+    2.通过并行化方式生成RDD
+    val rdd2 = sc.parallelize(Seq(("xiaofen",24),("xiaohua",28)))
+    或
+    val rdd3 = sc.makeRDD(Seq(("xiaofen",24),("xiaohua",28)))
+
+15.查看rdd分区数量
+    rdd1.partitions.size
+
+16.textFile分区方式
+    tips:Ctrl+alt+左键:找到实现类
+查看textFile源码->hadoopFile->minPartitions (Ctrl+F查找minPartiitons,找到getPartitions里)->
+getSplits(查找实现类ctrl+alt+左键:FileInputFormat)->FileStatus[]...处打断点
+
+分区数是根据给定的分区数和cores计算得出的
+如分区数给4,文件数为3   4/3 = 2  2*3 = 6 最终分区数为6
+再如:给定分区数7,文件数为3,textFile("hdfs://min1:8020/wc",7) 7/3 = 3 3*3=9 最终为9
+
+
+17.常用算子练习
+  1.map操作分区里的每个元素,mapPartitions操作每个分区
+    如:对每个元素乘10
+    val rdd = sc.parallelize(Array(1,2,3,4,5),2)
+    val res = rdd.map(_*10) //方式一
+    val res2 = rdd.mapPartitions(_.map(_*10))//方式二,此处map为方法,非算子
+
+注:处理海量数据用map,不会内存溢出;处理少量数据用mapPartitions效率高!!!
+
+  2.mapWith:取分区每个元素,还能操作分区号,有两个参数列表
+     val rdd = sc.parallelize(Array(1,2,3,4,5,6),2)
+     rdd.mapWith(i=>i*10)((a,b)=>b+2).collect
+    结果:Array(2,2,2,12,12,12)
+    分析:第一个参数列表中:i为分区索引号,为0,1,返回值为0,10第二个参数列表的b为第一个返回值,b+2为2,12
+
+   3.flatMapWith:同mapWith区别是返回结果放到了序列中
+        rdd.flatMapWith(i=>i,true)((a,b)=>List((b,a))).collect
+        结果:Array((0,1),(0,2),(0,3),(1,4),(1,5),(1,6))
+
+   4.mapPartitionsWithIndex
+
+   5.mapValues(func)
+
+...详见算子练习文档
+
+注意:countByKey()是action类型的算子!
+    所有带By的都是会发生shuffle类型的算子!
+    join也会发生shuffle!
+
+day02
+1.checkpoint过程
+   SecondaryNameNode有两个作用，一是镜像备份，二是日志与镜像的定期合并。
+   两个过程同时进行，称为checkpoint。
+
+知识点:textFile->flatMap->map->reduceBykey->saveAsTextFile->count
+   几个action类型的算子就有几个job
+步骤:
+sc.setCheckpointDir("hdfs://min1:8020/cp")
+val rdd = sc.textFile("hdfs://min1:8020/wc")
+    .flatMap(_.split(" ")).map((_,1)).reduceByKey(_+_)
+rdd.checkpoint
+rdd.isCheckpointed //Boolean=false,action型算子执行前不会发生checkpoint
+rdd.count //调用一个action型算子
+rdd.isCheckpointed  //Boolean=true
+rdd.getCheckpointFile //得到路径
+
+2.Spark集群启动流程!!!!!!(重要)
+
+知识点:akka:一个类库,可以实现节点和节点之间通信的功能(底层actor实现)
+  详见F:\spark\sparkcourse软件\scala\document
+
+  ActorSystem:通常是一个单例对象可以创建很多Actor对象
+
+  Actor:在Akka中,Actor负责通信,含有重要的生命周期方法
+    1 preStart()方法:该方法在Actor对象构造器执行后执行,整个Actor生命周期中
+      仅执行一次.(起到初始化赋值的作用)
+    2 receive()方法:该方法在Actor的preStart方法执行完成后执行,用于接收发送
+      消息,会被反复执行.
+
+启动流程:
+    (Master端)
+    1.通过调用start-all.sh来启动Master和Worker,首先启动的就是Master
+    2.Master服务启动后,在preStart()方法中会启动一个定时器,定时检查超时的Worker
+    3.执行receive方法,不断的接收其他Actor发送过来的请求
+
+    (Worker端)
+    4.在调用start-all.sh脚本的时候,会解析slaves配置文件,获取到用于启动Worker的节点
+    5.开始在相应节点启动Worker服务
+    6.Worker服务启动的时候,也会先执行preStart方法,该方法主要是向Master进行注册
+
+    (两端之间交互部分)
+    7.Worker向Master进行注册
+    8.Master收到注册信息后,把注册信息保存到缓存和磁盘中
+    9.Master保存完注册信息后,开始向Worker响应注册成功的信息
+    10.Worker收到注册成功的信息,把masterUrl保存一次,并开始心跳,集群启动成功  (Worker端)
+
+3.任务提交流程(重要)
+    Driver端(客户端)
+    ./spark-submit \
+    --class day02.SparkWC \
+    --master spark://min1:7077 \
+    --executor-memory 512m \
+    --total-executor-cores 2 \
+    /root/1.jar
+    args...
+
+ 1.Driver端向Master发送任务信息
+ 2.Master接收到任务信息后,把任务信息放到一个队列中
+ 3.Master找到比较空闲的Worker,并通知Worker来拿取任务信息
+ 4.Worker向Master拿取任务信息,同时启动Executor子进程
+ 5.Executor启动后,开始向Driver端反向注册
+ 6.Driver开始向相应的Executor发送任务(task)
+ 7.Executor开始执行任务
+
+day03
+1 WordCount过程中生成的几种RDD
+    textFile->flatMap(new HadoopRDD)
+    flatMap->map(new MapPartitionsRDD)
+    map->reduceBykey(new MapPartitionsRDD)
+    reduceBykey->saveAsTextFile(new ShuffledRDD)
+    saveAsTextFile->(new MapPartitionsRDD
+
+    在SparkWC中将输出改为 println(sorted.toDebugString)查看过程:
+    (2) MapPartitionsRDD[9] at sortBy at SparkWC.scala:40 []
+     |  ShuffledRDD[8] at sortBy at SparkWC.scala:40 []
+     +-(2) MapPartitionsRDD[5] at sortBy at SparkWC.scala:40 []
+        |  ShuffledRDD[4] at reduceByKey at SparkWC.scala:36 []
+        +-(2) MapPartitionsRDD[3] at map at SparkWC.scala:33 []
+           |  MapPartitionsRDD[2] at flatMap at SparkWC.scala:30 []
+           |  hdfs://min1:8020/mr/wc/input/hjm.txt MapPartitionsRDD[1] at textFile at SparkWC.scala:25 []
+           |  hdfs://min1:8020/mr/wc/input/hjm.txt HadoopRDD[0] at textFile at SparkWC.scala:25 []
+
+    Process finished with exit code 0
+
+  知识点:reduceBykey和groupBykey区别:(有道云)
+    通过源码可以发现:
+    reduceByKey：reduceByKey会在结果发送至reducer之前会对每个mapper在本地进行merge，
+    有点类似于在MapReduce中的combiner。这样做的好处在于，在map端进行一次reduce之后，
+    数据量会大幅度减小，从而减小传输，保证reduce端能够更快的进行结果计算。
+    groupByKey：groupByKey会对每一个RDD中的value值进行聚合形成一个序列(Iterator)，
+    此操作发生在reduce端，所以势必会将所有的数据通过网络进行传输，造成不必要的浪费。
+    同时如果数据量十分大，可能还会造成OutOfMemoryError。
+    通过以上对比可以发现在进行大量数据的reduce操作时候建议使用reduceByKey。不仅可以提高速度，
+    还是可以防止使用groupByKey造成的内存溢出问题
+
+2 宽依赖和窄依赖
+    窄依赖:不发生shuffle   一对一 多对一 ,一个父RDD的Partition最多被一个子RDD的Partition使用
+           如:map,filter,union
+    宽依赖:发生shuffle  一对多 ,一个父RDD的Partition被多个子RDD的Partition使用
+           如:groupByKey
+    join算子既可能是宽依赖也可能有窄依赖,在groupByKey后发生的join一定为窄依赖,其他情况一律为宽依赖
+
+考1:
+1、写出提交Spark任务命令。
+     spark-submit \
+    --class spark.day01.SparkWC \
+    --master spark://min1:7077 \
+    --executor-memory 512m \
+    --total-executor-cores 2 \
+    /root/1.jar
+2、列出至少5个用于聚合的算子
+    aggregate aggregateByKey combineByKey countByKey
+    filterByRange KeyBy foldByKey
+3、写出下列代码的打印结果。
+    def joinRdd(sc:SparkContext) {
+        val name= Array((1,"spark"),(2,"flink"),(3,"hadoop"))
+        val score= Array((1,100),(2,90),(3,80))
+        val namerdd=sc.parallelize(name);
+        val scorerdd=sc.parallelize(score);
+        val result = namerdd.join(scorerdd);
+        result.collect.foreach(println);
+    }
+ 答案:
+    (1,(spark,100))
+    (3,(hadoop,80))
+    (2,(flink,90))
+
+4、简述RDD的概念。
+    略 5条
+5、用Spark Core实现WordCount。（包括模板代码）
+    val conf = new SparkConf().setAppName("SparkWC").setMaster("local[2]")
+    val sc = new SparkContext(conf)
+    val lines = sc.textFile("hdfs://min1:8020/mr/wc/input/hjm.txt")
+    val words = lines.flatMap(_.split(" "))
+    val tup = words.map((_,1))
+    val sumed = tup.reduceByKey(_+_)
+    println(sorted.collect.toBuffer)
+    sc.stop()
+
+6、筛选出包含 Spark 的行，并统计行数。
+数据文件为：testdata.txt
+
+内容为：
+At a high level
+every Spark application consists of a driver program that runs the user’s main function
+and executes various parallel operations on a cluster
+The main abstraction Spark provides is a resilient distributed dataset (RDD)
+which is a collection of elements partitioned across the nodes of the cluster that can
+be operated on in parallel
+RDDs are created by starting with a file in the Hadoop file system (or any other
+Hadoop-supported file system)
+or an existing Scala collection in the driver program and transforming it
+Users may also ask Spark to persist an RDD in memory
+allowing it to be reused efficiently across parallel operations. Finally
+RDDs automatically recover from node failures
+答案:
+    sc.textFile("hdfs://min1:8020:/testdata.txt").filter(_.contains("Spark")).count
+    //包含即可,不需要切分!
+7、找到包含单词最多的那一行内容共有几个单词。（10分）
+数据文件为：testdata.txt
+答案:
+    sc.textFile("hdfs://min1:8020:/testdata.txt").map(_.split(" ")).map(_.length).max
+    或者简写为
+     sc.textFile("hdfs://min1:8020:/testdata.txt").map(_.split(" ").length).max
+    //因为map返回结果为Array(Array(a,b),Array(c,d,e))类型
+      而flatMap返回为Array(a,b,c,d,e)类型,所以统计每行个数只能用map
+8、计算testdata.txt文件中包含“a” 的行数 和包含“b”的行数。（10分）
+答案:
+     sc.textFile("hdfs://min1:8020:/testdata.txt").filter(_.contains("a")).count
+     sc.textFile("hdfs://min1:8020:/testdata.txt").filter(_.contains("b")).count
+
+
+考试2:
+1.checkpoint的应用场景和使用步骤:
+	有时候中间结果数据或者shuffle后的数据需要在以后的job中经常调用，此时需要做checkpoint
+	推荐最好把数据checkpoint到HDFS，保证数据安全性的前提下也便于集群所有节点能够获取到
+	checkpoint的目的？提高运算效率、保证数据的安全性
+
+	步骤：
+	1、设置checkpoint的目录
+	sc.setCheckpointDir("hdfs://node01:9000/cp-20180830-1")
+	2、把中间结果进行缓存
+	val rdd2 = rdd1.cache()
+	3、进行checkpoint
+	rdd2.checkpoint
+
+知识点:	rdd2.getCheckpointFile // 获取checkpoint的地址
+	    rdd2.isCheckpointed // 查看是否checkpoint
+
+2.什么情况下可以使用广播变量?使用广播变量时需要注意什么问题?
+    某一个变量在计算过程中,需要Executor一次或多次获取,我们可以提前从Driver端
+    广播到Executor端,方便使用.
+    注意:广播变量不可以很大,会影响效率.
+
+3.描述map和mapPartition的区别和应用场景
+    map是对rdd中的每一个元素进行操作；(适合海量数据)
+    mapPartitions则是对rdd中的每个分区的迭代器进行操作(适合不是特别大的数据量,数据太多会内存溢出)
+
+4.DataFrame的概念
+    DataFrame是用来操作SparkSQL的对象,
+
+
+5.在HDFS有数据文件,:/data/test.txt.用Spark SQL实现WordCount.
+ (1)获取HDFS的数据,分隔符为空格
+    textFile(" ").flatMap(_.split(" "))
+ (2)用StructType的方式生成Schema
+    val schema =
+ (3)生成DataFrame
+
+ (4)生成临时表
+
+ (5)SQL实现WordCount
+
+ (6)以json的格式输出到HDFS
+
+
+6.有数据文件test.txt,分隔符为"\t"用Spark Core实现,字段有id,time,url
+数据如下:
+    2       11:08:23      2_google
+    3       12:09:11      3_baidu
+    1       08:45:56      1_sohu
+    2       16:42:17      2_yahoo
+    1       23:10:34      1_baidu
+............中间有很多数据...........................
+    3       05:23:05      3_google
+
+输出到hdfs,结果如下:
+1       08:45:56      1_sohu
+1       23:10:34      1_baidu
+2       11:08:23      2_google
+2       16:42:17      2_yahoo
+3       05:23:05      3_google
+3       12:09:11      3_baidu
+............还有很多结果数据.........................
+
+答:分组取topn(有四个代码实现过,IPSearch...)
+
+
+
+
+7.有1亿个用户,存储在user.txt文件,其中有用户字段(uid),用户年龄字段(age),用户消费总金额(total),
+分隔符为"|".用自定义排序方式实现:按照用户年龄从大到小进行排序,如果年龄相同,则按照消费总金额从
+小到大排序.
+答:自定义排序
+    代码:
+
+
+
+8.描述Spark的Shuffle过程.
+  划分stage  先shuffle write 后shuffle read
+  shuffle write
+  把数据放到缓存,溢出时按照相同key放到一个或多个分区文件中
+  shuffle read
+  ...
+
+  Spark的shuffle的maptask和reducetask都在执行,而MapReduce的shuffle过程
+  中,先执行maptask再执行reducetask
+
+
+每日默写
+
+HDFS的读流程
+
+Hbase检索机制（读流程）
+
+Hive优化策略
+
+Hbase检索机制
+
+row key的设计原则
+
+yarn的任务提交流程
+
+
+接口与抽象类的区别
+    1）抽象类可以提供成员方法的实现细节，而接口中只能存在public abstract 方法；
+　　2）抽象类中的成员变量可以是各种类型的，而接口中的成员变量只能是public static final类型的；
+　　3）接口中不能含有静态代码块以及静态方法，而抽象类可以有静态代码块和静态方法；
+　　4）一个类只能继承一个抽象类，而一个类却可以实现多个接口。
+
+什么是多态
+    同一事物的多种表现形式
+    在代码中表现为父类的引用指向子类的对象
+
+JVM调优
+1、初始化内存和最大内存尽量保持一致，避免内存不够用继续扩充内存。
+   最大内存不要超过物理内存，例如内存8g，你可以设置最大内存4g/6g但是不能超过8g否则加载类的时候没有空间会报错。
+2、gc/full gc频率不要太高、每次gc时间不要太长、根据系统应用来定。...
+
+如何实现线程安全
+
+actor之间如何通信，通信安全
+
+几种排序代码
+
+union和unionall的区别
+having和where的区别
+
+默写java单例类
+
+
+
+

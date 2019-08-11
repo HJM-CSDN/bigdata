@@ -1,0 +1,52 @@
+系统环境准备  见bilibili
+    1.网络配置
+    -vi /etc/sysconfig/network
+    -vi /etc/hosts
+
+    2.ssh免密登录
+    -ssh-keygen -t rsa -P '' -f ~/.ssh/id_rsa
+    -ssh-copy-id
+
+    3.防火墙关闭
+    -service iptables stop
+    -chkconfig iptables off
+
+    4.SELINUX关闭
+    -setenforce 0
+    -vi /etc/selinux/config (SELINUX=disabled)
+
+    5.安装JDK
+    -export JAVA_HOME=/usr/java/jdkxxx
+    -export PATH =
+    -export CLASSPATH=
+
+    6.安装NTP
+    -设置开机启动 chkconfig ntpd on
+    -设置时间同步 ntpdate 202.120.2.101
+
+    7.安装配置mysql
+    -GRANT ALL PRIVILEGES ON *.* TO 'root'@'%' IDENTIFIED BY '123' WITH GRANT OPTION;
+    -flush privileges
+
+    8.下载第三方依赖包
+    - chkconfig.....
+
+ClouderaManager安装
+    见bilibili视频
+
+扩容机器时主要是扩容：DataNode 和 NodeManager
+
+
+HUE
+.....
+
+
+Impala
+    由Cloudera公司推出，提供对HDFS、Hbase数据的高性能、低延迟的交互式SQL查询功能。
+    基于Hive使用内存计算，兼顾数据仓库、具有实时、批处理、多并发等优点
+    是CDH平台首选的PB级大数据实时查询分析引擎。
+
+劣势：对内存依赖大
+      完全依赖hive
+      实践过程中，分区超过1w，性能严重下降
+      稳定性不如hive

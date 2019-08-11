@@ -1,0 +1,84 @@
+3、画出Yarn工程流程
+1）客户端向RM中提交程序
+    
+2）RM向NM中分配一个container，并在该container中启动AM
+3）AM向RM注册，这样用户可以直接通过RM査看应用程序的运行状态(然后它将为各个任务申请资源，并监控它的运行状态，直到运行结束)
+    
+4）AM采用轮询的方式通过RPC协议向RM申请和领取资源，资源的协调通过异步完成
+    
+5）AM申请到资源后，便与对应的NM通信，要求它启动任务
+    
+6）NM为任务设置好运行环境(包括环境变量、JAR包、二进制程序等)后，将任务启动命令写到一个脚本中，并通过运行该脚本启动任务
+    
+7）各个任务通过某个RPC协议向AM汇报自己的状态和进度，以让AM随时掌握各个任务的运行状态，从而可以在任务失败时重新启动任务
+    
+8）应用程序运行完成后，AM向RM注销并关闭自己
+
+
+4、你们使用的spark运行模式是什么，spark on yarn工作流程是什么，client和cluster区别
+
+client方式开发测试
+yarn-cluster模式下:
+(1)ResourceManager接到请求后在集群中选择一个NodeManager分配Container，并在Container中启动ApplicationMaster进程；
+
+(2)在ApplicationMaster进程中初始化sparkContext；
+
+
+(3)ApplicationMaster向ResourceManager申请到Container后，通知NodeManager在获得的Container中启动excutor进程；
+
+
+(4)sparkContext分配Task给excutor，excutor发送运行状态给ApplicationMaster
+yarn-clinet模式下:
+(1)ResourceManager接到请求后在集群中选择一个NodeManager分配Container，并在Container中启动ApplicationMaster进程；
+
+(2)driver进程运行在client中，并初始化sparkContext；
+
+
+(3)sparkContext初始化完后与ApplicationMaster通讯，通过ApplicationMaster向ResourceManager申请Container，
+ApplicationMaster通知NodeManager在获得的Container中启动excutor进程；
+
+
+(4)sparkContext分配Task给excutor，excutor发送运行状态给driver。
+
+Yarn-cluster和Yarn-Client不同点
+cluster模式：Driver程序在YARN中运行，应用 的运行结果不能在客户端显示，所以最好运行那些将结果最终保存在外部存储介质（HDFS、Redis、mysql）而不是stdout输出的应用程序，客户端的中断显示的仅是作为YARN的job的简单运行状况
+client模式：Driver运行在Client上，应用程序运行结果会在客户端显示，所有适合运行结果又输出的应用程序
+
+
+5、Yarn调度有哪几种？你们用的是那种？然后给一个案例如果申请的资源，在yarn队列里资源不够，怎么处理
+Yarn调度有哪几种？
+Yarn中有三种调度器可以选择：FIFO Scheduler ，Capacity Scheduler，FairScheduler。
+你们用的是那种？
+使用的是FairScheduler----Fair调度器即得到了高的资源利用率又能保证小任务及时完成
+
+一个案例如果申请的资源，在yarn队列里资源不够，怎么处理？
+1.确保一个spark作业的资源肯定是有的
+2.采用简单的调度区分--------大文件放到一个队列，小文件放到一个队列
+3.只会有一个作业在里面运行，，spark作业每一次运行，都达到最满的资源使用率，最快的速度，最好的性能
+4.通过java的线程池（一个线程池对应一个资源队列），实现上面方案
+
+6、spark用的版本？spark内存管理，画出来，然后给一个案例，excutor要申请300内存的过程
+spark1.6版本
+
+申请内存：
+Spark 在代码中 new 一个对象实例
+JVM 从堆内内存分配空间，创建对象并返回对象引用
+Spark 保存该对象的引用，记录该对象占用的内存
+
+BlockManager主要提供了读取和写数据的接口，可以从本地或者是远程读取和写数据，读写数据可以基于内存、磁盘或者是堆外空间 (OffHeap)。如果想使用 BlockManager 的话，必须调用 initialize 方法。程序进行 Shuffle 的时候是通过 BlockManager 去管理的。
+
+8、shuffle管理的几种方式？有什么区别？
+HashShuffleManager（1.2版本之前）
+SortShuffleManager（1.2版本之后）
+都会产生大量的中间磁盘文件，，但是SortShuffleManager最后会将所有的临时文件合并(merge)成一个磁盘文件，因此每个Task就只有一个磁盘文件
+
+
+6、如何保证yarn的高可用，yarn在挂掉后，未执行完的作业怎么处理
+
+如何保证yarn的高可用？
+ResourceManager : 基于Zookeeper 实现高可用机制，避免单点故障。
+
+NodeManager: 执行失败之后，ResourceManager 将失败任务告诉对应的ApplicationMaster , 由ApplicationMaster 来决定如何处理失败的任务。
+
+ApplicationMaster: 执行失败之后，由ResourceManager 负责重启；ApplicationMaster 需处理内部的容错问题，并保存已经运行完成的Task , 重启后无需重新运行。
+

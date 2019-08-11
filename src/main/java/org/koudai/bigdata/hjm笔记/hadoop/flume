@@ -1,0 +1,84 @@
+    flume是分布式的日志收集系统，它将各个服务器中的数据收集起来并送到指定的地方去，
+    比如说送到HDFS，简单来说flume就是收集日志的。
+
+1.flume的架构
+(1)Flume OG
+Flume逻辑上分三层架构：Agent，Collector，Storage。
+Flume OG采用了多Master的方式。为了保证配置数据的一致性，Flume引入了ZooKeeper，用于保存配置数据，
+ZooKeeper本身可保证配置数据的一致性和高可用，另外，在配置数据发生变化时，ZooKeeper可以通知Flume Master节点。
+Flume Master间使用gossip协议同步数据。
+
+FLUME OG 的特点是：
+FLUME OG 有三种角色的节点：代理节点（agent）、收集节点（collector）、主节点（master）。
+agent 从各个数据源收集日志数据，将收集到的数据集中到 Collector，然后由收集节点汇总存入 HDFS。master 负责管理 agent，collector 的活动。
+agent、collector 都称为 node，node 的角色根据配置的不同分为 logical node（逻辑节点）、physical node（物理节点）。
+agent、collector 由 source、sink 组成，代表在当前节点数据是从 source 传送到 sink。
+(2)	Flume NG
+ Flume NG最明显的改动就是取消了集中管理配置的 Master 和 Zookeeper，变为一个纯粹的传输工具。
+ Flume NG另一个主要的不同点是读入数据和写出数据现在由不同的工作线程处理（称为Runner）。
+ 在 Flume NG 中，读入线程同样做写出工作（除了故障重试）。如果写出慢的话（不是完全失败），
+ 它将阻塞 Flume 接收数据的能力。这种异步的设计使读入线程可以顺畅的工作而无需关注下游的任何问题。
+FLUME NG 的特点是：
+NG 只有一种角色的节点：代理节点（agent）。
+没有 collector、master 节点，这是核心组件最核心的变化。
+去除了 physical nodes、logical nodes 的概念和相关内容。
+agent 节点的组成也发生了变化。Flume NG的 agent 由 source、sink、Channel 组成
+
+2.如何保证数据的完整性
+ 一：Flume的事务机制
+
+    所以这就不得不提Flume的事务机制（类似数据库的事务机制）：
+    Flume使用两个独立的事务分别负责从source到channel，以及从channel到sink的事件传递。
+    比如以上面一篇博客中的事例为例：spooling directory source 为文件的每一行创建一个事件，
+    一旦事务中所有的事件全部传递到channel且提交成功，那么source就将该文件标记为完成。
+    同理，事务以类似的方式处理从channel到sink的传递过程，如果因为某种 原因使得事件无法记录，
+    那么事务将会回滚。且所有的事件都会保持到channel中，等待重新传递。
+
+ 二:Flume的At-least-once提交方式
+
+      Flume的事务机制，总的来说，保证了source产生的每个事件都会传送到sink中。但是值得一说的是，
+      实际上Flume作为高容量并行采集系统采用的是At-least-once（传统的企业系统采用的是exactly-once机制）提交方式，
+      这样就造成每个source产生的事件至少到达sink一次，换句话说就是同一事件有可能重复到达。这样虽然看上去是一个缺陷，
+      但是相比为了保证Flume能够可靠地将事件从source,channel传递到sink,这也是一个可以接受的权衡。
+      如上博客中spooldir的使用，Flume会对已经处理完的数据进行标记。
+
+  三：Flume的批处理机制
+
+      为了提高效率，Flume尽可能的以事务为单位来处理事件，而不是逐一基于事件进行处理。
+      比如上篇博客提到的spooling directory source以100行文本作为一个批次来读取(BatchSize属性来配置，类似数据库的批处理模式)。
+      批处理的设置尤其有利于提高file channel的效率，这样整个事务只需要写入一次本地磁盘，或者调用一次fsync，速度回快很多。
+
+四、Flume source有几种方式?
+    1.avro source
+        侦听Avro端口并从外部Avro客户端流接收事件。当与另一个Flume代理上的内置Avro Sink配对时，它可以创建分层集合拓补。
+        使用场景：
+            分层的数据收集。例如两层的日志收集：使用flume将Nginx日志文件上传到hdfs上，要求hdfs上的目录使用日期归档。
+    2.thrif source
+        监听Thrift端口并从外部Thrift客户端流接收事件。当与另一（前一跳）Flume代理上的内置ThriftSink配对时，它可以创建分层集合拓扑。
+    3.exec source
+        Exec源在启动时运行给定的Unix命令，并期望该进程在标准输出上连续产生数据（除非属性logStdErr设置为true，否则stderr将被丢弃）。
+    4.spooling directory source
+        此源允许您通过将要提取的文件放入磁盘上的“spooling”目录中来提取数据。
+    5.kafka source
+        Kafka Source是一个从Kafka主题读取消息的Apache Kafka消费者。 如果您有多个Kafka源运行，您可以使用相同的Consumer Group配置它们，
+        这样每个都将为主题读取一组唯一的分区。
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

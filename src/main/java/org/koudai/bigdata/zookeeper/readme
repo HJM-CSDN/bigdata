@@ -1,0 +1,24 @@
+zookeeper
+    zookeeper是一个分布式协调服务;
+    集群角色:leader 和 follower（Observer）
+    底层核心功能:
+        管理用户程序提交的数据
+        为用户程序提供数据节点监听服务
+1、应用场景
+    主从协调
+    服务器节点动态上下线
+    统一配置管理
+    分布式共享锁
+    统一名称服务等
+ https://cloud.tencent.com/developer/article/1177322
+ https://blog.csdn.net/king866/article/details/53992653
+2、服务器动态上下线感知
+
+3、主从协调
+
+4、配置管理
+
+5、分布式共享锁
+
+6、选举机制
+

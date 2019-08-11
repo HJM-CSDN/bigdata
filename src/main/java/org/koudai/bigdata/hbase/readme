@@ -1,0 +1,9 @@
+1.查年龄以2开头的雇员的薪水全量信息
+2.查询姓名中包含h字母的雇员的名字和age
+    思路:先写两个比较器,第一个过滤出包含h字母的雇员所有信息
+    第二个通过正则过滤出名字和age列
+    然后用比较链将两个比较器连接起来
+
+            //多个过滤器之间连接的方式
+            //and FilterList.Operator.MUST_PASS_ALL  两个and操作
+            //or FilterList.Operator.MUST_PASS_ONE   两个or操作

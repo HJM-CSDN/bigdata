@@ -1,0 +1,58 @@
+1.内部表,外部表,相同与区别
+  未被external修饰的是内部表(managed table),被external修饰的为外部表
+  区别:
+     1 内部表数据由hive自身管理,外部表数据由HDFS管理;
+     2 内部表数据存储的位置是hive.metastore.warehouse.dir(默认/user/hive/warehouse),
+       外部表数据的存储位置由自己指定
+     3 删除内部表会直接删除元数据(metadata)及存储位置;删除外部表仅仅会删除
+       元数据,HDFS上的文件并不会被删除;
+     4 对内部表的修改会将修改直接同步给元数据,而对外部表的表结构和分区进行修改,
+       则需要修复（MSCK REPAIR TABLE table_name）
+
+2.hive和mysql数据迁移用的什么工具(sqoop)
+
+3.sqoop可以从hive往mysql迁移数据么
+
+由于Sqoop将数据移入和移出关系型数据库的能力，其对于Hive—Hadoop生态系统里的著名的类SQL数据仓库—有专门的支持。
+命令“create-hive-table”可以用来将数据表定义导入到Hive。
+
+
+4.100个分片，我想聚合成两个分片，用哪个算子？
+   --coalesce  /,kəʊə'les/ [ke wo le si] 合并；结合；联合
+
+知识点:
+重分区:repartition coalesce
+        coalesce只能用于减少分区数量,因为不会发生shuffle
+        reparation可以增加分区,也可以减少分区,必会发生shuffle
+
+5.kafka为什么依赖zookeeper,zookeeper中存储了kafka中哪些元数据
+
+  kafka需要用 zk 做 meta 信息存储，consumer 的消费状态，group 的管理以及 offset的值。
+ kafka使用zookeeper来实现动态的集群扩展，不需要更改客户端（producer和consumer）的配置。
+
+  broker会在zookeeper注册并保持相关的元数据（topic，partition信息等）更新。
+
+ 而客户端会在zookeeper上注册相关的watcher。一旦zookeeper发生变化，客户端能及时感知并作出相应调整。
+  这样就保证了添加或去除broker时，各broker间仍能自动实现负载均衡。
+  这里的客户端指的是Kafka的消息生产端(Producer)和消息消费端(Consumer)
+
+ Broker端使用zookeeper来注册broker信息,以及监测partitionleader存活性.
+
+ Consumer端使用zookeeper用来注册consumer信息,其中包括consumer消费的partition列表等,
+  同时也用来发现broker列表,并和partitionleader建立socket连接,并获取消息.
+
+ Zookeeper和Producer没有建立关系，只和Brokers、Consumers建立关系以实现负载均衡，
+  即同一个ConsumerGroup中的Consumers可以实现负载均衡（因为Producer是瞬态的，可以发送后关闭，无需直接等待）
+
+
+   kafka的元数据包括有下面几类：
+    1 topic信息以及分区副本存放信息
+    2 broker节点信息以及broker控制节点选举信息
+    3 消费者信息
+
+补充
+    早期版本的 kafka 用 zk 做 meta 信息存储，consumer 的消费状态，group 的管理以及 offset的值。
+    考虑到zk本身的一些因素以及整个架构较大概率存在单点问题，新版本中确实逐渐弱化了zookeeper的作用。
+    新的consumer使用了kafka内部的group coordination协议，也减少了对zookeeper的依赖
+
+

@@ -1,0 +1,158 @@
+sqoop是什么？？
+Apache Sqoop(TM) is a tool designed for efficiently transferring bulk
+data between Apache Hadoop and structured datastores such as relational databases.
+
+本质：本质就是将sqoop的语句转换成mapreduce任务。
+
+特点：
+优点：它可以将跨平台的数据进行整合。
+缺点：它不是很灵活。
+mysql <--- > hdfs
+mysql ---> hive
+mysql ---> hbase
+
+由于Sqoop将数据移入和移出关系型数据库的能力，其对于Hive—Hadoop生态系统里的著名的类SQL数据仓库—有专门的支持不足为奇。
+命令“create-hive-table”可以用来将数据表定义导入到Hive。
+
+sqoop的重要的几个关键词？？
+import ： 从关系型数据库到hadoop
+export ： 从hadoop到关系型数据库。
+
+sqoop的安装：
+1、解压配置环境变量
+tar -zxvf /home/sqoop... -C /usr/local/sqoop...
+vi /etc/profile
+2、mv ./conf/sqoop-env-template.sh ./conf/sqoop-env.sh
+
+3、配置文件：vi ./conf/sqoop-env.sh
+export HADOOP_COMMON_HOME=/usr/local/hadoop-2.7.1/
+export HADOOP_MAPRED_HOME=/usr/local/hadoop-2.7.1/
+export HIVE_HOME=/usr/local/hive-1.2.1/
+export ZOOCFGDIR=/usr/local/zookeeper-3.4.7/
+
+4、将mysql的驱动包导入到sqoop安装目录下的lib包下面
+cp /home/mysql-connector-java-5.1.18.jar ./lib/
+5、启动测试：
+sqoop version
+sqoop help
+
+
+查看数据库：
+sqoop list-databases \
+--connect jdbc:mysql://min1:3306 \
+--username root --password Root@123;
+
+sqoop list-tables \
+--connect jdbc:mysql://min1:3306/hive \
+--username root \
+--password Root@123;
+# 注释:hive为数据库名 \后面不能有空格,行命令连接
+
+案例1：表没有主键，需要指定map task的个数为1个才能执行
+bin/sqoop import --connect jdbc:mysql://min1:3306/userdb \
+--username root --password Root@123 \
+--table emp -m 1
+
+案例2：表没有主键，使用--split-by指定执行split的字段
+bin/sqoop import --connect jdbc:mysql://min1:3306/userdb \
+--username root --password Root@123 \
+--table emp \
+--split-by id \
+--target-dir hdfs://min1:9000/sqoopdata/3
+
+####出错--
+Caused by: java.sql.SQLException: null,  message from server: "Host 'hdp03' is not allowed to connect to this MySQL server"
+
+解决方案：
+先连接mysql：mysql -uroot -p
+	#(执行下面的语句  *.*:所有库下的所有表   %：任何IP地址或主机都可以连接)
+	GRANT ALL PRIVILEGES ON *.* TO 'root'@'%' IDENTIFIED BY 'Root@123' WITH GRANT OPTION;
+	FLUSH PRIVILEGES;
+
+	grant all privileges on *.* to root@"localhost" identified by "Root@123" with grant option;
+	FLUSH PRIVILEGES;
+
+grant all privileges on *.* to root@'localhost' identified by 'Root@123';
+flush privileges;
+
+
+
+案例3：需要导入的数据不是全部的，而是带条件导入
+bin/sqoop import --connect jdbc:mysql://min1:3306/userdb \
+--username root --password Root@123 \
+--table emp \
+--split-by id \
+--where 'id > 1203' \
+--target-dir hdfs://min1:9000/sqoopdata/5
+
+案例4：要导入的数据，不想包含全部字段，只需要部分字段
+bin/sqoop import --connect jdbc:mysql://min1:3306/userdb \
+--username root --password Root@123 \
+--split-by id \
+--query 'select id,name,dept from emp where id < 1203 and $CONDITIONS' \
+--target-dir hdfs://min1:9000/sqoopdata/7
+
+案例5：将数据导入到hive中
+bin/sqoop
+import
+--connect jdbc:mysql://min1:3306/userdb
+--username root
+--password Root@123
+--table emp
+--hive-import -m 1
+
+案例6：增量append方式导入数据：
+bin/sqoop import --connect jdbc:mysql://min1:3306/userdb \
+--username root --password Root@123 \
+--table emp \
+--incremental append \
+--check-column id \
+--last-value 1205 \
+-m 1
+
+案例7：数据导出：
+bin/sqoop export \
+--connect jdbc:mysql://min1:3306/userdb \
+--username root \
+--password Root@123 \
+--table employee \
+--export-dir hdfs://min1:9000/sqoopdata/5
+
+###
+mysql表的编码格式做为utf8，hdfs文件中的列数类型和mysql表中的字段数一样
+导出暂不能由hive表导出mysql关系型数据库中
+--export-dir是一个hdfs中的目录，它不识别_SUCCESS文件
+--query导入的时候注意设置问题。
+
+
+
+
+
+
+sqoop import \
+--connect jdbc:mysql://min1:3306/QLIS \
+--username root \
+--password Root@123 \
+--table answer_paper \
+--target-dir /QLIS/source/answer_paper \
+--m 1  #表示启动mr的数量
+
+sqoop import \
+--connect jdbc:mysql://min1:3306/hive \
+--username root \
+--password Root@123 \
+--table DBS \
+--hive-import \
+--m 1
+
+//向指定hive数据库的下导入表
+sqoop import \
+--connect jdbc:mysql://min1:3306/hive \
+--username root \
+--password Root@123 \
+--table DBS \
+--delete-target-dir \
+--num-mappers 1 \
+--hive-import \
+--hive-database default \
+--hive-table newDBS

@@ -1,0 +1,359 @@
+1 生产者消费者的代码写一下（java方面的生产者消费者案例）
+2 快速排序和冒泡排序的时间复杂度是多少，哪个更快？
+3 网络编程方面了解哪些，服务器线程方面了解哪些？
+4 hashMap如何保证线程安全？
+5 JVM内存中存储内存和执行内存保存哪些数据，如果有堆外内存，存储内存还有嘛？
+6 Jvm调优了解哪些？
+7 写一个死锁程序
+8 知道哪些设计模式
+9 NIO是否了解?
+10 说一下红黑二叉树；写一个普通的二叉树；二叉树的先序、中序、后序遍历
+11 多线程的实现方式？
+    Java多线程实现方式主要有四种：
+        继承Thread类、
+        实现Runnable接口、
+        实现Callable接口通过FutureTask包装器来创建Thread线程、
+        使用ExecutorService、Callable、Future实现有返回结果的多线程。
+
+    其中前两种方式线程执行完后都没有返回值，后两种是带返回值的。
+
+12 start和run方法区别？
+
+    1。start():
+    我们先来看看API中对于该方法的介绍：
+         使该线程开始执行；Java 虚拟机调用该线程的 run 方法。
+         结果是两个线程并发地运行；当前线程（从调用返回给 start 方法）和另一个线程（执行其 run 方法）。
+         多次启动一个线程是非法的。特别是当线程已经结束执行后，不能再重新启动。
+    用start方法来启动线程，真正实现了多线程运行，这时无需等待run方法体代码执行完毕而直接继续执行下面的代码。
+    通过调用Thread类的 start()方法来启动一个线程，这时此线程处于就绪（可运行）状态，并没有运行，一旦得到cpu时间片，
+    就开始执行run()方法，这里方法 run()称为线程体，它包含了要执行的这个线程的内容，Run方法运行结束，此线程随即终止。
+    2。run():
+    我们还是先看看API中对该方法的介绍：
+          如果该线程是使用独立的 Runnable 运行对象构造的，则调用该 Runnable 对象的 run 方法；否则，该方法不执行任何操作并返回。
+        Thread 的子类应该重写该方法。
+    run()方法只是类的一个普通方法而已，如果直接调用Run方法，程序中依然只有主线程这一个线程，其程序执行路径还是只有一条，还是要
+    顺序执行，还是要等待run方法体执行完毕后才可继续执行下面的代码，这样就没有达到写线程的目的。
+
+    3。总结：
+    调用start方法方可启动线程，而run方法只是thread的一个普通方法调用，还是在主线程里执行。
+
+
+
+13 线程池 了解多少 线程池的参数  多线程了解多少？
+    线程池应用场景：单个任务处理时间比较短，需要处理的任务的数量大的情况下应用。
+    好处：减少在创建和销毁线程上所花的时间以及系统资源的开销。避免内存过度消耗以及“过度切换”。
+
+14 什么是构造函数,构造代码块,静态代码块?分别的作用是什么?三者的顺序
+
+
+14 知道B树和B+树吗
+
+15 给一个单项链表 判断它是不是“回文”（A->B->C->B->A 这种正反都一样的叫回文）要求时间复杂度是O（n） 空间复杂度是O（1）
+
+16  hashmap的底层实现 链表 hash冲突
+
+17  map的4中遍历方法
+
+
+18 线程的生命周期
+
+
+19 线程之间是如何通信的
+    1 同步 2 while轮询的方式 3 wait/notify机制 4 管道通信
+
+20 了解什么是JUC么
+    juc是为并发同步而设计，是为解决死锁设计。
+
+21 了解fail-fast机制么？
+    抛出异常java.util.ConcurrentModificationException！即，产生fail-fast事件！
+    fail-fast机制，是一种错误检测机制。它只能被用来检测错误，因为JDK并不保证fail-fast机制一定会发生。
+    若在多线程环境下使用fail-fast机制的集合，建议使用“java.util.concurrent包下的类”去取代“java.util包下的类”。
+    所以，本例中只需要将ArrayList替换成java.util.concurrent包下对应的类即可。
+
+22 对JVM了解多少
+
+23.什么是构造函数,构造代码块,静态代码块?分别的作用是什么?三者的顺序
+    构造函数是类用来创建对象使用的一种函数可以有有参构造函数也可以有无参构造函数
+      构造代码块的作用和构造函数类似可以完成类中的成员变量进行初始化也可以调用成员方法
+      静态代码块属于类的,静态代码块可以随着类的加载而加载可以初始化中的静态成员变量,也
+      可以在连接JDBC时用于读取文件中的连接信息
+    先执行静态代码块 在执行构造代码块 最后执行构造方法
+
+24	double和Double的区别?
+   double是基本数据类型,值会存储在栈中并且初始值是0.0,不能存在集合中
+   Double是包装类即double的引用类型,值会存储在堆中初始值是null,可以替代double存储 集合中
+
+25	2<<3等于多少
+   16
+
+26	判断字符串为空时如何避免空指针异常?
+   String str=null;
+   if(str == null || str.isEmpty())来进行判断
+
+27	什么是重载和重写?
+重载:是面向对象中多态特性的一种体现,即方法名相同形参列表不同(参数,个数,顺序)满足其中一个条件即可
+重写:是面向对象中继承特性的一种体现,即父类中所提供的方法无法满足子类需求时,子类可以实现和父类一样的方法即为重写,但是fianl,private,static修饰的方法无法重写
+
+28	实现线程的三种方式?
+继承Thread类，并复写run方法，创建该类对象，调用start方法开启线程。
+实现Runnable接口，复写run方法，创建Thread类对象，将Runnable子类对象传递给Thread类对象。调用start方法开启线程。
+创建FutureTask对象，创建Callable子类对象，复写call(相当于run)方法，将其传递给FutureTask对象（相当于一个Runnable）
+29	Thread类中的start()和run()方法的区别?
+用start方法来启动线程，真正实现了多线程运行，这时无需等待run方法体代码执行完毕而直接继续执行下面的代码。通过调用Thread类的 start()方法来启动一个线程，这时此线程处于就绪（可运行）状态，并没有运行，一旦得到cpu时间片，就开始执行run()方法，这里方法 run()称为线程体，它包含了要执行的这个线程的内容，Run方法运行结束，此线程随即终止。
+
+30	final修饰的方法可以被继承/重载/重写吗?
+   final修饰的方法可以继承和重载,但是不能重写
+
+31	遍历二叉树的方式有哪些?选择一种方式用程序实现?
+二叉树遍历分为三种先序遍历
+首先访问根，再先序遍历左子树，最后先序遍历右子树 根 --> 左 -- > 右
+无序中序遍历首先中序遍历左子树，再访问根，最后中序遍历右子树 左 --> 根 --.> 右
+升序后序遍历首先后序遍历左子树，再后序遍历右子树，最后访问根 左 --> 右 --> 跟
+
+左-->根-->右排序
+public class BinaryTree {
+	  private Node root;//节点
+	  //添加节点
+	  public void add(int data) {
+		   if(root == null) {
+			   root = new Node(data);
+		   }else {
+			   root.addNode(data);
+		   }
+	  }
+	  public void  printBinaryTree() {
+		  root.print();
+	  }
+
+	  class Node{
+		  private int data;//数据
+		  private Node left; //左
+		  private Node right; //右
+		 public Node(int data) {
+			 this.data = data;
+		 }
+		 //添加节点(左/右)
+		 public void addNode(int data) {
+			 if(this.data > data) {
+				 if(this.left == null) {
+					 this.left = new Node(data);
+				 }else {
+					 //递归
+					 this.left.addNode(data);
+				 }
+			 }else {
+				 if(this.right == null) {
+					 this.right =  new Node(data);
+				 }else {
+					 this.right.addNode(data);
+				 }
+			 }
+		 }
+		 //左 --> 根 ---> 右
+		 public void print() {
+			 if(this.left != null) {
+				 this.left.print();
+			 }
+			 System.out.print(this.data+"->");
+			 if(this.right != null) {
+				 this.right.print();
+			 }
+		 }
+	  }
+
+}
+public class Test {
+    public static void main(String[] args) {
+		BinaryTree bt = new BinaryTree();
+		bt.add(8);
+		bt.add(3);
+		bt.add(10);
+		bt.add(6);
+		bt.add(7);
+		bt.add(14);
+		bt.add(13);
+		bt.add(2);
+	   bt.printBinaryTree();
+	}
+}
+
+31	java常见的排序方式有哪些?选择一种实现?
+冒泡排序复杂度为O（n*n）,插入排序复杂度为O（n*n）,堆排序复杂度为nlog2（n）
+快速排序复杂度为nlog2（n）,归并排序复杂度为nlog2（n）
+冒泡排序:
+public class bubbleSort {
+	public static void main(String[] args) {
+		int[] numbers  = {10,12,2,3,5,78,6,21,99,88};
+		for(int j =0; j<numbers.length-1; j++){
+			for(int i = 0; i<numbers.length-1-j;i++){
+				int temp = 0;
+				if (numbers[i]>numbers[i+1]){
+					temp = numbers[i+1];
+					numbers[i+1] = numbers[i];
+					numbers[i] = temp;
+				}
+			}
+		}
+	}
+ }
+
+32	什么是反射?如何通过反射访问私有字段?
+JAVA反射机制是在运行状态中，对于任意一个类，都能够知道这个类的所有属性和方法；对于任意一个对象，都能够调用它的任意一个方法和属性；
+这种动态获取的信息以及动态调用对象的方法的功能称为java语言的反射机制。
+要想解剖一个类,必须先要获取到该类的字节码文件对象。而解剖使用的就是Class类中的方法.所以先要获取到每一个字节码文件对应的Class类型的对象.
+可以用getDeclaredField方法并且需要开启权限setAccessible(true)
+
+
+33	常见的排序及复杂度,实现快排算法
+冒泡排序复杂度为O（n*n）,插入排序复杂度为O（n*n）,堆排序复杂度为nlog2（n）
+快速排序复杂度为nlog2（n）,归并排序复杂度为nlog2（n）
+快排算法:
+
+public class QickSort {
+	public static void main(String[] args) {
+		int[] numbers = {10,12,2,3,5,78,6,21,99,88};
+		int len = numbers.length;
+		//如果数组大于2的时候才开始排序
+		if(len>1){
+			quickSort(numbers,0,len-1);
+		}
+		System.out.println(Arrays.toString(numbers));
+	}
+	public static void  quickSort(int[] list, int low, int high) {
+		if(low < high){
+			int middle = getMiddle(list, low, high);
+			quickSort(list, low, middle - 1);
+			quickSort(list, middle + 1, high);
+		}
+	}
+	public static int  getMiddle(int[] list, int low, int high) {
+		int temp = list[low];
+		while(low < high){
+			while(low < high && temp <= list[high]){
+				high--;
+			}
+			temp>=list[high]
+			list[low] = list[high];
+			while(low < high && list[low] <= temp){
+				low++;
+			}
+			list[low]>temp
+			list[high] = list[low];
+		}
+		list[low] = temp;
+		return low;
+	}
+}
+
+34	题目:实现Fibonacci(即斐波那契额)数列
+public class Demo {
+    public static int f(int n) throws Exception {
+        if(n==0){
+           throw new Exception("参数错误！");
+        }
+        if (n == 1 || n == 2) {
+            return 1;
+        } else {
+            return f(n-1)+f(n-2);//自己调用自己
+        }
+ }
+    public static void main(String[] args) throws Exception {
+        for (int i = 1; i <=10; i++) {
+            System.out.print(f(i)+" ");
+        }
+    }
+}
+
+35	常见的设计模式,任选模式一种模模式代码的实现
+
+单例,模板,工厂,装饰者,适配器,代理,观察者等设计模式
+public class HungrySingle {
+	private static HungrySingle instance = new HungrySingle();
+	private HungrySingle() {
+	}
+	public static HungrySingle getInstance() {
+		   return instance;
+	}
+}
+
+36	简述java线程池,并说明线程安全的解决思路
+所谓线程池，就是将多个线程放在一个池子里面（所谓池化技术），然后需要线程的时候不是创建一个线程，而是从线程池里面获取一个可用的线程，
+然后执行我们的任务。线程池的关键在于它为我们管理了多个线程，我们不需要关心如何创建线程，我们只需要关系我们的核心业务，然后需要线程
+来执行任务的时候从线程池中获取线程。任务执行完之后线程不会被销毁，而是会被重新放到池子里面，等待机会去执行任务。
+ 一个线程池包括以下四个基本组成部分： 
+ 1、线程池管理器（ThreadPool）：用于创建并管理线程池，包括 创建线程池，销毁线程池，添加新任务； 
+ 2、工作线程（PoolWorker）：线程池中线程，在没有任务时处于等待状态，可以循环的执行任务； 
+ 3、任务接口（Task）：每个任务必须实现的接口，以供工作线程调度任务的执行，它主要规定了任务的入口，任务执行完后的收尾工作，
+ 任务的执行状态等； 
+ 4、任务队列（taskQueue）：用于存放没有处理的任务。提供一种缓冲机制。
+
+解决线程安全问题的思路是消除产生线程安全问题的环境：
+消除共享数据：成员变量与静态变量多线程共享，将这些全局变量转化为局部变量，局部变量存放在栈，线程间不共享，
+就不存在线程安全问题产生的环境了。消除共享数据的不足：如果需要一个对象采集各个线程的信息，或者在线程间传递信息，
+消除了共享对象就无法实现此目的。
+使用线程同步机制：给读写操作同时加锁，使得同时只有一个线程可以访问共享数据。如果单单给写操作加锁，同时只有一个线程可以执行写操作，
+而读操作不受限制，允许多线程并发读取，这时就可能出现不可重复读的情况，如一个持续时间比较长的读线程，相隔较长时间读取数组同一索引
+位置的数据，正好在这两次读取的时间内，一个线程修改了该索引处的数据，造成该线程从同一索引处前后读取的数据不一致。是同时给读写加锁，
+还是只给写加锁，根据具体需求而定。同步机制的缺点是降低了程序的吞吐量。
+建立副本：使用ThreadLocal为每一个线程建立一个变量的副本，各个线程间独立操作，互不影响。该方式本质上是消除共享数据思想的一种实现。
+使用synchronized或lock来完成加锁处理
+
+
+37	什么是cookie,作用是什么?cookie和session的区别与联系
+cookie是存在于客户端（浏览器）。
+cookie的使用是由浏览器按照一定的原则在后台自动发送给服务器的。浏览器检查所有存储的cookie，如果某个cookie所声明的作用范围大于等于将要请求的资源所在的位置，则把该cookie附在请求资源的HTTP请求头上发送给服务器。
+cookie的内容主要包括：名字，值，过期时间，路径和域。其中路径与域一起构成cookie的作用范围。若不设置过期时间，则表示这个cookie的生命期为浏览器会话期间，关闭浏览器窗口，cookie就消失
+
+Session是另一种记录客户状态的机制，不同的是Cookie保存在客户端浏览器中，而Session保存在服务器上。客户端浏览器访问服务器的时候，服务器把客户端信息以某种形式记录
+  在服务器上。这就是Session。客户端浏览器再次访问时只需要从该Session中查找该客户的状态就可以了。
+  每个用户访问服务器都会建立一个session，那服务器是怎么标识用户的唯一身份呢？事实上，用户与服务器建立连接的同时，服务器会自动为其分配一个SessionId
+
+总结
+1、cookie数据存放在客户的浏览器上，session数据放在服务器上。
+2、cookie不是很安全，别人可以分析存放在本地的cookie并进行cookie欺骗，考虑到安全应当使用session。
+3、session会在一定时间内保存在服务器上。当访问增多，会比较占用你服务器的性能，考虑到减轻服务器性能方面，应当使用cookie。
+4、单个cookie保存的数据不能超过4K，很多浏览器都限制一个站点最多保存20个cookie。
+5、可以考虑将登陆信息等重要信息存放为session，其他信息如果需要保留，可以放在cookie中。
+
+38	简述spring隔离级别与传播行为
+spring 的事务传播行为：
+Spring在TransactionDefinition接口中规定了7种类型的事务传播行为，它们规定了事务方法和事务方法发生嵌套调用时事务如何进行传播：
+　　PROPAGATION_REQUIRED：如果当前没有事务，就新建一个事务，如果已经存在一个事务中，加入到这个事务中。这是最常见的选择。
+　　PROPAGATION_SUPPORTS：支持当前事务，如果当前没有事务，就以非事务方式执行。
+　　PROPAGATION_MANDATORY：使用当前的事务，如果当前没有事务，就抛出异常。
+　　PROPAGATION_REQUIRES_NEW：新建事务，如果当前存在事务，把当前事务挂起。
+　　PROPAGATION_NOT_SUPPORTED：以非事务方式执行操作，如果当前存在事务，就把当前事务挂起。
+　　PROPAGATION_NEVER：以非事务方式执行，如果当前存在事务，则抛出异常。
+　 PROPAGATION_NESTED：如果当前存在事务，则在嵌套事务内执行。如果当前没有事务，则执行与PROPAGATION_REQUIRED类似的操作。
+
+Spring 的隔离级别
+SERIALIZABLE：最严格的级别，事务串行执行，资源消耗最大；
+REPEATABLE_READ：保证了一个事务不会修改已经由另一个事务读取但未提交（回滚）的数据。避免了”脏读取”和”不可重复读取”的情况，但是带来了更多的性能损失。
+READ_COMMITTED:大多数主流数据库的默认事务等级，保证了一个事务不会读到另一个并行事务已修改但未提交的数据，避免了”脏读取”。该级别适用于大多数系统。
+Read_UNCOMMITTED：保证了读取过程中不会读取到非法数据
+
+
+39	简述常见前后端服务框架
+SpringMVC,Spring,Mybatis,Dubbo,RabbitMQ,Redis
+
+40	不使用循环条和件语句实现1+2+3+...n
+    public static int sum(int n) {
+        int sum = n;
+        boolean isContinue = (n > 0) && (sum += sum(--n)) > 0;
+        return sum;
+    }
+
+    public static void main(String[] args) {
+        int result = sum(5);
+        System.out.println(result);
+   }
+
+类的实例化顺序
+1． 父类静态成员和静态初始化块 ，按在代码中出现的顺序依次执行
+2． 子类静态成员和静态初始化块 ，按在代码中出现的顺序依次执行
+3． 父类实例成员和实例初始化块 ，按在代码中出现的顺序依次执行
+4． 父类构造方法
+5． 子类实例成员和实例初始化块 ，按在代码中出现的顺序依次执行
+6． 子类构造方法
+
+结论：对象初始化的顺序，先静态方法，再构造方法，每个又是先基类后子类。

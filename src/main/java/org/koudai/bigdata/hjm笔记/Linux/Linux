@@ -1,0 +1,1321 @@
+hadoop
+HDFS:分布式存储系统 HA 高可用
+mapreduce:计算
+yarn:资源调度   10天
+
+hive数据仓库工具: 5天
+hbase:非关系型数据库 3-4天
+flume:日志收集工具
+sqoop：数据整合工具
+
+
+linux:开源，免费类unix操作系统。是一个多用户，多任务，支持多线程和多cpu的操作系统。
+支持的平台，手机，平板电脑，服务器，路由器，视频游戏控制台。。。。。。。
+
+
+特性：
+1.基本思想：一切都是文件，一切软件都有固定的用途 /etc/profile  .repo .repo.bak
+2.完全免费：开源，发展速度快，安全性更高e
+3.posix1.0标准
+4.多用户，超级管理员：root
+5.界面良好
+6.支持多平台
+
+一、
+1.安装Vmware12,（虚拟化软件，安装后可以帮我们创建出虚拟机--计算机）
+2.创建计算机（虚拟机）
+3.安装操作系统
+
+二、linux操作系统的目录结构
+/ 根目录，所有目录或文件都在根目录下
+/boot:系统启动、引导和内核目录，存放引导装载文件，系统启动相关的信息，命令、程序都在该目录下
+grub目录下的grub.conf文件timeout的属性=0
+/bin：二进制文件目录。包含可供root和普通用户使用的linux命令，包含shell解析器
+/dev :设备目录，存放各种硬件设备的信息，比如：光驱，磁盘，网卡。。。。
+/etc ：系统级别的配置文件所在目录 /etc/profile ,这个目录一般由root用户使用
+/lib /lib64 :存放系统的函数库的目录，c开发的。
+/lost+found:系统崩溃的时候消息记录到该目录下
+/mnt(mount):一般专门用来挂载外部设备的目录
+/opt:系统安装额外软件的目录
+/proc:重要的、需要加载到内存中的数据
+/root:root用户的家目录
+/home:普通用户的家目录
+/usr :共享目录
+/sbin:系统管理员使用的命令，普通用户只有查看权限，没有执行权限
+/tmp:临时目录
+/var:存放程序运行时的需要改变的数据
+
+
+命令的使用
+COMMAND + 选项 + 参数
+tab键：补全
+路径的补全：
+1.在某个目录下，如果只有一个目录的时候，可以不用输入首字母，直接按tab键就可以自动补全
+2.双击tab键，显示所有匹配的目录（或命令）或者是文件
+3.如果有用户输入，按tab键，能唯一匹配这个输入，就会自动补全结果，如果有多个匹配目录，按tab就会
+将所有符合条件的显示出来
+
+绝对路径：所有文件或目录都从根目录开始，那么我们在写路径的时候，以根目录为起始的叫做绝对路径
+相对路径：路径以./开头，或者什么也不写都是相对路径（相对当前目录）
+上一级目录 ..
+目录切换用 CD 命令
+
+cd /a/c
+cd /b
+cd ../../b
+
+pwd：查看当前所在位置
+
+ctrl + r :查找输入过的历史命令，根据用户输入的字符或字符串匹配历史命令，将匹配到的最近的一条
+历史命令返回
+
+ifcig
+ifconfig eth0
+ifconfig
+ctrl + r
+
+ctrl + l:清屏（clear）
+
+
+帮助命令：
+man + COMMAND 按q退出
+info + COMMAND  按q退出
+COOMAND + -help 或者是 --help
+命令 + 选项 + 参数
+
+uname:查看linux的系统信息
+uname -a  ：显示系统及版本的所有信息
+uname -r  : 显示内核版本
+uname -n  :显示主机名
+uname -m  :打印硬件名称
+
+cat /etc/redhat-release (查看小版本)
+cat /etc/issue（发行版本信息）
+cat /proc/version（当前操作系统的版本信息）
+
+RHEL:红帽企业级版本，收费的版本
+Centos:企业级的社区版，免费
+ubuntu：
+Debian：
+Fedora：桌面版
+Fedora core ：测试版
+suse:界面比较良好
+
+
+cd 切换工作目录
+cd /etc
+cd -  :回到上一次操作的目录
+cd ~  :回到当前用户的家目录
+cd    :回到当前用户家目录
+cd .. :回到上一级目录
+cd .  :当前目录
+
+
+ls 查看目录
+
+ls -l 以列表形式显示
+ls -a 查看所有文件或目录，包括隐藏文件，当前目录，上一级目录
+ls -h 以可读的方式显示文件的大小
+
+date命令：
+date +"%Y-%m-%d %H:%M:%S" 更改时间输出样式
+date -s "2018-09-02 00:00:00"
+
+ifconfig eth0 192.168.91.5
+
+ping 192.168.91.5
+
+ctrl + c 强制终止
+ctrl + z 后台挂起
+
+jobs ：显示linux系统中的任务列表及状态，包括后台运行的任务
+fg + 任务id ：调到前台执行
+bg + 任务id : 后台执行
+
+ps -e(所有)f(全格式) 查看进程
+ps -aux
+kill -9 + PID(进程id)
+
+pstree ：以树状图的方式显示进程之间的关系
+pstree -p 显示进程id
+
+|  ：管道 command 1 | command 2 将前一个命令的处理结果交给第二个命令去处理
+
+grep :过滤，文本搜索工具
+-i  忽略大小写
+-n  输出行号
+-v 反向选择，也就是找不匹配行
+--color 突出显示查找的字符串
+
+查看根目录下的etc下的passwd文件
+
+cat /etc/passwd | grep -i --color ssh
+
+查看系统的运行状态，监控工具
+top
+
+shutdown
+
+shutdown -h +10 10分钟后关机
+
+shutdown -h now 立即关机
+
+shutdown -h 00:00 零点关机
+
+halt 立即关机
+init 0 关机
+
+shutdown -r now 立即重启
+reboot  重启
+init 6  重启
+
+init 3 命令行界面
+init 5 图形化界面
+vi /etc/inittab
+
+
+who 查看当前谁在线（谁登陆了服务器）
+
+last -n  查看最近n条登陆的历史记录
+
+
+
+cat /etc/profile
+ps -ef
+ps -aux | grep root
+
+kill -9 pid
+
+top
+
+
+
+shuntdown -h now
+halt
+init 0
+
+reboot
+init 6
+shuntdown -r now
+
+grep -i -n -v --color 字符串 + filename
+
+ls -l    ll
+ls -a
+ls -h
+
+jobs
+fg + jobid  前台执行
+bg + jobid  后台执行
+
+ctrl + c
+ctrl + z
+ctrl + l
+
+cd -
+cd ~
+cd
+cd ..
+
+pwd
+
+man +command
+info  +command
+command -help  --help
+
+hostname
+ifconfig eth0 192.168.91.5
+ping 192.168.91.5
+
+who
+last -n
+
+date -s
+date +"%Y-%m-%d %H:%M:%S"
+
+hwclock -w
+
+service iptables stop
+chkconfig iptables off
+chkconfig iptables --list
+
+
+
+
+不进入系统修改密码
+1.读秒的时候按e进入grub
+2.在grub菜单选项按e进入编辑模式
+3.编辑kernel那行（第二行）
+4.输入 空格 1  然后按enter
+5.按b重新启动
+6.passwd root
+7.输入密码，确认密码，reboot重启
+
+一、文件和目录的操作
+1.文件和目录的创建、复制、移动、重命名
+mkdir -p /aaa/bbb/ccc/ddd (递归创建，父目录没有的情况下，会帮我们把父目录创建出来)
+
+mkdir /eee ：只能创建一级目录
+mkdir fff  :在当前路径下创建
+
+mkdir -p  /home/1/2/3/4 /data/1 (创建多个目录)
+
+文件的创建
+touch + 文件名（不指定路径，默认在当前路径下创建），可以同时创建多个文件、创建的文件为一个空文件
+
+touch /home/1.txt /home/hadoop/2.txt  (创建多个)
+
+echo
+echo print 打印到屏幕
+echo hello > ./1.txt
+>  先清空内容，然后再写入
+>> 追加写入内容
+#不通过交互信息，直接修改用户密码
+echo "123" （新密码）| passwd --stdin root(账户)
+ls -l  /home > 1.log
+cat /etc/profile >>1.log
+< : 输入重定向（相当于 导入）
+cat > 2.log <1.log （相当于把1.log文件中的内容导入到2.log）
+<<EOF :输入结束（以EOF结束，end of file .EOF区分大小写，是自定义的，可以换成其他的）与ctrl+d类似
+cat > 3.log <<EOF
+cat > 4.log  输入内容 ctrl+d 结束输入
+cat 3.log 4.log >> 5.log
+
+2.文件和目录的拷贝
+cp /a/b/c/d.txt   + 新的路径
+cp d.txt（当前路经下）   + 新的路径
+cp /etc/profile /home
+cp ./1.log ./2.log /home 同时拷贝多个文件
+拷贝文件并且重命名
+cp + 文件名 + 新的文件名
+cp /etc/profile ./profile.bak
+cp -r（recursive）目录名 + 新路径
+
+3.移动文件或目录并可以改名（相当于剪切）
+mv + 文件名或目录名 + 新的路径（新的存储位置）
+
+4.删除文件或目录
+rm
+-r recursive
+-f force
+rm -rf 强制递归删除一个文件或目录
+
+5.文件的改名
+rename
+rename + 要修改的字符串 + 修改后的字符串 + 匹配的文件
+rename .repo .repo.bak ./* (匹配当前目录中的所有文件)将.repo结尾的文件改为.repo.bak
+rename .bak "" ./*  去掉.bak的后缀
+
+二、文件的编辑
+vi或vim
+vi + 文件名（包含路径。如不指定，就是操作当前路径下的文件）
+
++++++++++++一般模式+++++++++++++++
+dd:删除光标所在行
+ndd:从光标所在行开始，删除n行
+dG:从光标所在处删除到文件末尾
+x:删除光标所在位置字符
+nx：从光标所在处开始，删除n个字符
+D：从光标所在处删除到改行末尾
+r:替换光标所在处的字符
+R：从光标所在处替换，按esc结束
+u:取消上一步操作
+ctrl + r ：返回到取消前
+yy:复制一行
+nyy:复制n行
+p:粘贴
+gg: 定位到首行
+G: 定位到尾行
++++++++++++++编辑模式++++++++++++++++++++++
+esc 退出编辑模式，进入一般模式
+i :光标所在处前一个位置开始插入
+I ：光标所在行行首开始输入
+a :光标所在处后一个位置开始插入
+A :光标所在行行尾开始输入
+o :光标所在行下一行开始输入
+O :光标所在行上一行开始输入
+++++++++++++++底行模式++++++++++++++++++++++
+shift + ： 进入底行模式
+：n 定位到n行
+：set nu 设置行号
+：set nonu 取消行号设置
+：pwd 显示当前工作目录
+：cd 查看一个路径
+：w 保存
+：q 退出
+：wq 保存并退出
+：wq! 强制保存退出
+：q! 强制退出
+
+--------查找
+/bin 查找文件中出现的bin （从光标所在处开始往后查找）,并定位到第一个找到的位置，
+继续往下查找使用n，按N定位到上一个匹配的位置
+
+--------替换
+：s/sbin/gp1812 查找光标所在行的第一个sbin 并替换为gp1812
+：s/sbin/gp1812/g 查找光标所在行的所有sbin 并替换为gp1812
+：%s/sbin/gp1812/g 查找文件中的所有sbin 并替换为gp1812
+：3，$s/sbin/gp1812/g 查找文件中第三行至文件末尾的所有sbin 并替换为gp1812
+：1，10s/sbin/gp1812/g 查找文件中第1行至第10行的所有sbin 并替换为gp1812
+
+
+++++++++++++选择模式++++++++++++
+v 进入字符选择模式
+shift + v 进入 行选择模式
+ctrl + v 块选择模式
+y  复制
+p 粘贴
+
+
+四、文件的查看
+cat 一次性将文件中所有内容打印到控制台
+head 默认取前10行 head -n  filename  取文件前n行
+tail 默认取文件后10行 tail -n 取文件后n行
+tail -n +5 file 取出文件第5行到文件末尾
+
+more:分页查看文件，适合内容较多的文件查看
+-》空格向下翻页查看
+-》enter 逐行查看
+-》b 回看
+-》q 退出
+
+less :分页查看文件，适合内容较多的文件查看
+-》空格向下翻页查看
+-》enter 逐行查看
+-》b 回看
+-》q 退出
+less 支持搜索
+
+
+flume : 日志采集工具
+
+分析日志：
+
+tail -f 监控文件（监控的是文件inode）
+一旦文件改名，移动tail -f 将失去对这个文件的监控
+阻断日志的写入，把文件拷贝，将原文件清空
+
+
+tail -F 监控的是文件名
+文件不存在也可以监控
+阻断日志写入的流 把文件移动走，创建一个新的文件和原来文件名字相同
+
+
+磁盘上文件存储最小单位是扇区：512字节
+操作系统在读磁盘的最小单位：块（block）,一个块8个扇区，大概4k
+
+系统存储文件的数据分为两种：元数据和数据块
+同样，磁盘存储也在系统格式化的时候被分为两部分。分别存储元数据和数据块
+读一个文件要读哪儿些块，是根据元数据知道的，元数据存在inode里。
+
+元数据：时间，用户，组，权限块的信息.......
+stat + 文件名 ##查看元数据信息
+
+inode 的大小
+inode也会消耗磁盘空间，磁盘格式化的时候，会自动分成两个区域，一个是数据区，存放数据文件
+另一个就是inode区（inode table）,存放inode包含的信息
+每个inode节点的大小一般是128字节或者256字节。
+inode的节点总数，在格式化的时候就给定.一般是1kb或者2kb就设置一个inode
+1G 每个inode节点大小128字节，给1kb分配一个inode
+那么inode table大小会达到多少128M,占整块磁盘的12.8%
+会出现的问题：磁盘空间未满，但不能创建文件
+原因是:inode区已经占满。
+
+df -i 查看磁盘分区的inode使用情况
+
+ls -i file 查看文件的inode号。
+
+HDFS 分布式文件存储系统：存储大文件，高吞吐量
+元数据：内存，一个块的元数据占150字节
+数据文件：
+
+---------------------------------------------
+五、文件的查找
+which:从环境变量中查找的，一般用来查找命令所在位置
+
+whereis：该指令会在特定目录中查找符合条件的文件，这些文件属于原始代码、二进制文件等
+一般用于查找软件的安装位置
+
+find ：查找速度很慢 ，需要指定查找的路径（也就是说在哪儿个路径下去查找匹配的文件或目录）
+参数前的路径可以有多个，表示可以从多个路径下查找
+
+find + 路径 + 参数
+
+find /root /home -name "*.txt"
+
+查找并删除，有人机交互界面
+find /root /home -name "*.txt" -ok rm {} \;
+
+查找并自动删除
+find /root /home -name "*.txt" -ok -exec rm {} \;
+
+locate：查找文件所在，查找的是linux文件的数据库，效率很快。有弊端，数据库不是实时更新的
+
+history ： 显示历史命令
+
+六、文件的压缩和打包
+gzip :用来压缩文件。以.gz为扩展名。可以压缩比较大的文件，节省磁盘空间，可以与tar命令结合使用
+构成linux中比较流行的压缩格式
+1.压缩时不保留原文件
+2.不能压缩目录
+3.解压缩命令gunzip
+4.可以同时压缩多个文件
+5.可以同时解压缩多个
+
+bzip2 扩展名.bz2
+1.压缩时不保留原文件
+2.不能压缩目录
+3.解压缩命令bunzip2
+4.可以同时压缩多个文件
+5.可以同时解压缩多个
+
+
+tar 打包
+可以将多个文件或目录放在一起
+tar -cvf test.tar 1.txt 2.txt
+c 打包
+x 解包
+v 显示信息
+f 指定文件
+C 重定向
+z gzip 压缩或解压 "*.tar.gz"
+
+打包并压缩以gzip的格式压缩
+tar -zcvf test.tar.gz  222.log aaaaaaaaaa cls.avi
+解包并解压，重定向到/home/hadoop(解压并解包出来的文件输出的位置)
+tar -zxvf test.tar.gz -C /home/hadoop/
+打包并压缩以bzip2的格式压缩
+tar -jcvf ha.tar.bz2  222.log aaaaaaaaaa/ cls.avi
+
+七、用户与组的操作
+1.useradd
+useradd -u 666 -g 502 -G 501 user3
+-u 指定uid
+-g 指定基本组
+-G 指定附加组
+useradd user
+所有用户必须放在组内，如创建用户时不指定组，系统会默认创建与用户名同名的组。用户id与组id由
+系统分配
+
+普通用户用户id从500开始
+root用户的用户id为0
+1--499 系统用户使用
+
+/etc/passwd
+/etc/group
+/etc/shadow
+/etc/gshadow
+
+设置用户密码 passwd +用户名
+设置组的密码 gpasswd + 组名
+
+2.usermod
+-g 设置组id
+-u 设置用户id
+
+usermod -g 500 -u 999 user
+3.删除用户
+userdel
+-r 删除用户的同时删除用户的家目录
+userdel user
+userdel -r user1
+
+组的操作
+添加组
+groupadd + 组名
+
+删除组
+groupdel + 组名
+
+groupmod + 组名
+
+
+八、文件的权限（读、写、执行）
+-|rw-|---|---. 1 root root 1771 4月28 2015 anaconda-ks.cfg
+① ② ③  ④     ⑤   ⑥   ⑦    ⑧            ⑨
+①：文件类型
+	-	文件
+	d	目录
+	l	链接
+②：所有者权限（u）  6
+	r	读	 4
+	w	写	 2
+	x	执行 1
+③：所属组权限（g） 5
+	r	读	4
+	w	写	2
+	x	执行	1
+④：其他用户权限（o） 0
+	r	读	4
+	w	写	2
+	x	执行	1
+⑤：所有者
+⑥：所属组
+⑦：文件大小
+⑧：最后修改时间
+⑨：文件名
+
+chmod ugo+rwx 修改权限
+chmod -R
+
+
+chmod u+w /etc/souders
+修改所属用户和所属组
+chown -R（表示递归修改） user3:root  +目录
+
+
+链接：
+1.硬链接：相当于复制文件，复制后的文件与原文件有一样的内容，对复制后的文件修改，原文件修改
+对原文件修改，复制的文件也会被修改
+只能是文件到文件，或者是文件到目录
+2.符号链接：
+可以是文件也可是目录(写绝对路径)
+ln -s
+ln -s /data/aaa /home/lns 符号链接：相当于将/data/aaa 拷贝到了/home/lns ,
+但是只是建立了一个连接，不是真正的拷贝文件的内容。
+
+
+
+sudo权限的配置
+
+visudo /etc/sudoers
+vi 强制保存退出
+
+ ## Allow root to run any commands anywhere
+ 98 root    ALL=(ALL)       ALL
+ 99 user2   ALL=(ALL)       ALL
+ 108 ## Same thing without a password
+ 109 # %wheel        ALL=(ALL)       NOPASSWD: ALL
+ 110 user2   ALL=(ALL)       NOPASSWD: ALL
+
+使用命令时使用 sudo + 命令
+
+一、磁盘和U盘的操作
+du -sh 查看目录所占空间大小
+
+df -h  显示磁盘分区使用情况
+
+mkfs.ext4 /dev/sda1  格式化磁盘分区
+
+fdisk -l 显示磁盘分区列表
+一个磁盘的大小=一个柱面大小*柱面的总数
+一个柱面大小=磁头数量*每个磁道上的扇区数*每个扇区大小（512）
+
+磁盘分区
+fdisk /dev/sda
+
+挂载命令
+mount -t 文件系统类型 -o 挂接方式 设备  挂载点
+
+创建一个目录作为挂载目录
+mkdir /mnt/centos
+
+将iso镜像文件挂载到/mnt/centos下
+mount -t iso9660 -o loop /dev/cdrom /mnt/centos
+
+ro：只读方式
+rw:读写方式
+loop：把一个文件当成磁盘分区挂接上系统
+
+这种挂载方式只对当前session有效，如果要永久挂载，需要将挂载内容写入文件
+vi /etc/fstab
+
+tmpfs                   /dev/shm                tmpfs   defaults        0 0
+devpts                  /dev/pts                devpts  gid=5,mode=620  0 0
+sysfs                   /sys                    sysfs   defaults        0 0
+proc                    /proc                   proc    defaults        0 0
+/dev/cdrom              /mnt/centos             iso9660 defaults        0 0 加入的配置
+
+
+取消挂载
+umount /mnt/centos
+
+二、系统服务管理
+
+service --status-all  #查看系统所有的后台服务进程
+service +服务名 + start | stop | status | restart
+
+service sshd stop  停止服务
+
+service sshd status 查看状态
+
+service sshd start 启动
+
+service sshd restart 重启服务
+
+
+配置后台服务开机自启
+
+chkconfig --list ##查看系统服务的开机自启设置
+chkconfig iptables off #关闭防火墙的开机自启
+chkconfig iptables on  #开启防火墙的开机自启
+
+vi /etc/inittab
+
+主机名管理
+hostname +主机名（临时修改，当前session有效，重启后失效）
+vi /etc/sysconfig/network ##设置主机名，永久生效
+NETWORKING=yes
+HOSTNAME=hdp01
+vi /etc/hosts (修改域名映射)
+127.0.0.1   localhost localhost.localdomain localhost4 localhost4.localdomain4
+::1         localhost localhost.localdomain localhost6 localhost6.localdomain6
+192.168.91.7 hdp01
+
+修改ip地址，需要修改的地方
+ONBOOT=yes  			#开机启动网卡
+BOORPROTO=static 		#静态IP （dhcp:动态获取）
+IPADDR=192.168.91.7  	#IP地址
+GATEWAY=192.168.91.2 	#网关
+NETMASK=255.255.255.0   #子网掩码
+DNS1=8.8.8.8 			#域名解析
+
+修改网卡后需要重新启动网卡。
+service network restart #重新启动网卡
+
+
+
+三、软件的安装
+1.二进制的安装
+优点：安装简单
+缺点：平台的局限性
+
+mkdir /app /bigdata
+上传软件包至/bigdata下
+解压文件 tar -zxvf /bigdata/jdk-8u60-linux-x64.gz -C /app
+配置环境变量
+vi /etc/profile
+export JAVA_HOME=/app/jdk1.8.0_60
+export PATH=$PATH:$JAVA_HOME/bin:
+重新加载环境变量
+source /etc/profile
+测试：
+java -version
+
+java version "1.8.0_60"
+Java(TM) SE Runtime Environment (build 1.8.0_60-b27)
+Java HotSpot(TM) 64-Bit Server VM (build 25.60-b23, mixed mode)
+
+rpm的安装
+
+安装mysql的服务端
+rpm -ivh /app/MySQL-server-5.6.26-1.linux_glibc2.5.x86_64.rpm
+
+安装
+-i install   安装
+-v verbose  显示详细信息
+-h hash     显示进度
+
+卸载
+rpm -e 包名
+选项	全称	作用
+-e	erase	卸载
+-–nodeps	不检查依赖性
+
+查询
+-q query
+-a all
+
+rpm -qa | grep -i mysql
+
+升级软件
+-U	upgrade	升级
+-v	verbose	显示详细信息
+-h	hash	显示进度
+
+rpm -e --nodeps mysql-libs-5.1.73-5.el6_6.x86_64
+
+yum 安装：本质上就是rpm安装，会帮我们解决软件包安装和卸载的依赖关系
+yum源：软件仓库，三种网络yum源（需要联网），局域网yum源，本地yum源
+
+yum -y（同意）
+install 安装
+
+查看可用的安装包及已安装的软件
+yum list mysql*
+
+yum list | grep mysql
+
+查看已安装的软件
+yum list installed mysql*
+
+显示安装包信息
+yum info +软件的名字
+
+yum info mysql
+
+同时安装多个类似的
+yum -y install mysql*
+多个非类似
+yum -y install mysql php .....
+
+卸载
+remove
+
+yum -y remove mysql mysql-server
+
+
+
+缓存的问题
+清空yum源缓存
+yum clean all
+
+列举可使用软件仓库的信息
+yum repolist
+
+本地yum源
+1.软件包，存在本机上
+软件包在镜像文件上===》需要挂载（永久挂载）
+mkdir /mnt/centos
+mount -t iso9660 -o loop /dev/cdrom /mnt/centos
+(永久挂载)
+2.配置配置文件？.repo文件
+cd /etc/yum.repos.d
+
+rename .repo .repo.bak ./*
+cp CentOS-Media.repo.bak local.repo
+vi local.repo
+
+[local]
+name=CentOS-$releasever - local
+baseurl=file:///mnt/centos
+gpgcheck=1
+enabled=1
+gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-CentOS-6
+
+配置：配置文件要指向我的本地的软件仓库，也就是指向存储了软件包的那个位置（目录）
+3.清空缓存：yum clean all
+4.查看可用的yum源： yum repolist
+
+
+局域网yum源：
+软件包
+选出一台服务器
+这台电脑要作为服务器，提供网络服务
+yum list | grep httpd
+yum -y install httpd.x86_64 (安装了网络服务)
+开启服务 service httpd start
+关闭防火墙 service iptables stop
+设置防火墙开机不启动 chkconfig iptables off
+
+软件包拷贝到网络服务的目录下
+mkdir /mnt/centos
+mount -t iso9660 -o loop /dev/cdrom /mnt/centos
+ln -s /mnt/centos /var/www/html (相当于将软件包放在了http服务的目录下)
+配置客户端
+
+
+本地yum源
+1.软件包
+镜像文件挂载的，挂载到了某一个目录下（永久挂载）
+2.配置配置文件
+1）rename 原有的失效
+2）拷贝出一个，然后自己编辑
+3）配置 路径（file:///mnt/centos）、enabled=1
+
+局域网yum源
+1)软件包
+2)服务器
+3)安装网络服务（httpd）:防火墙？防火墙开机自启？
+4)将软件包交给httpd，也就是放在httpd服务的目录下 /var/www/html(做一个软连接)
+5)开启服务httpd
+6)配置客户端
+	rename 原有的失效
+	拷贝出一个，然后自己编辑
+	配置 路径（http://mini1/centos）、enabled=1
+7)清空缓存
+8)查看可用的yum源
+
+三台虚拟机
+mini1 mini2 mini3
+mini1 提供yum源（挂载，使用永久挂载）
+mini1 mini2 mini3 作为客户端使用mini1提供的局域网yum源
+
+
+2、挂载光盘镜像文件
+mkdir /mnt/centos2
+mount -t iso9660 -o loop /root/CentOS-6.7-x86_64-bin-DVD1.iso /mnt/centos2
+
+以上两种挂载方式，都是只对当前session有效，如果要使之永久生效，需要将挂载内容写入到配置文件
+vi /etc/fstab
+/dev/cdrom              /mnt/centos              iso9660 defaults        0 0   ##光驱的配置项
+/root/CentOS-6.7-x86_64-bin-DVD1.iso    /mnt/centos2     iso9660 defaults,ro,loop        0 0   ##挂载镜像文件的配置项
+
+
+- 源码安装的优点是：
+
+1、用户可以自己定制软件功能，安装需要的模块，不需要的功能可以不用安装。
+
+2、用户还可以自己选择安装路径，方便管理。
+
+3、卸载软件也很方便，只需删除对应的安装目录即可。
+
+4、能最大程度和服务器平台融合，效率稍微比其他方式高。
+
+5、没有windows所谓的注册表之说。
+
+- 源码安装的缺点是：
+
+1、安装较为繁琐，需要自己配置
+
+2、安装较为耗时，需要自己编译源码
+
+3、安装较为容易出错，出错也难以解决
+
+语言软件源码编译安装——redis服务器安装
+用源码工程来编译安装
+1/ 到官网下载最新stable版
+2/ 解压源码并进入目录  tar -zxvf redis-2.8.19.tar.gz  -C  /usr/local
+ cd /usr/local/redis
+3/  make(在redis路径下make)
+redis c语言编辑 ，如果报错提示缺少gcc，则安装gcc ：yum install -y gcc
+
+如果报错提示：Newer version of jemalloc required
+则在make时加参数：make MALLOC=libc
+
+4/ 安装redis，指定安装目录,如 /usr/local/redis
+make PREFIX=/usr/local/redis install
+
+5/ 拷贝一份配置文件到安装目录下
+切换到源码目录，里面有一份配置文件 redis.conf，然后将其拷贝到安装路径下
+cp /usr/local/redis-2.6.16/redis.conf /usr/local/redis/
+
+6/ 启动redis
+cd /usr/local/redis
+bin/redis-server redis.conf
+
+
+出错：
+zmalloc.h:50:31: error: jemalloc/jemalloc.h: No such file or directory
+
+解决方案：
+cd deps
+hiredis
+jemalloc
+lua
+
+cd hiredis
+make
+cd ..
+cd lua
+make linux
+cd ..
+cd jemalloc
+./configure
+make
+
+再次编译安装
+make PREFIX=/usr/local/redis install
+依然失败。
+先删除源码
+cd ..
+rm -rf redis-2.6.16
+
+重新解压：
+
+cd redis-2.6.16
+编译安装：
+make PREFIX=/usr/local/redis install
+
+
+二、ssh 通讯协议及免登录
+ssh:一种通讯协议，可以实现远程安全登录
+Openssh：ssh远程安全登录的开源实现
+一）、ssh远程安全登录的工作原理（基于口令）
+1.客户端发起远程登录请求
+2.服务端接收请求，将自己的主机公钥发送给客户端
+注：公钥（加密）
+3.客户端将主机发送过来的公钥进行hash算法，得出主机公钥的公钥指纹，核对公钥指纹是否真确，以确认当前连接的主机是否是我们要登录的主机
+在hdp02上查看公钥指纹 ssh-keygen -lf  /etc/ssh/ssh_host_rsa_key.pub
+hdp01上验证公钥指纹
+4.核对过公钥指纹后，输入yes,客户端会将服务端的公钥保存在$HOME/.ssh/know_hosts文件中
+cat $HOME/.ssh/know_hosts  查看保存在客户端的公钥
+5.客户端将密码用服务端的公钥进行加密发送给服务端
+6.服务端接收加密后的密码，用存在/etc/ssh下的对应的私钥进行解密，然后对比密码，返回登录结果
+注：私钥（解密）
+
+二）ssh免密码登录（基于秘钥的）
+注：免密登录不是万能的。免密登录指的是从一台主机A的用户Auser，使用Buser用户（主机B的一个用户）免密码登录到主机B。
+只能以hdp01上的用户root 使用root（hdp02的）用户登录到hdp02
+root@hdp01=====>root@hdp02
+存在严格的对应关系
+1.在客户端上生成一对秘钥（公钥和私钥）
+ssh-keygen -t rsa -P "" -f ~/.ssh/id_rsa
+注： -t  加密算法 -P 私钥是否使用密码 -f 指定生成秘钥对的保存位置
+2.将客户端公钥发送给服务端
+ssh-copy-id root@hdp02  hdp01上的root用户的公钥拷贝给hdp02的root用户的家目录下
+注：要把公钥追加到服务端对应用户的$HOME/.ssh/authorized_keys文件中，还要修改
+$HOME/.ssh/authorized_keys文件权限
+3.客户端请求登录服务端（带着自己的用户名和主机名）
+4.服务端根据客户端的用户名和主机名查找对应的公钥，将一个随机字符串用该公钥加密后发送给客户端
+5.客户端用自己的私钥将加密字符串解密，再将解密的字符串发送给服务端
+6.服务端比对发送出去的字符串和接收的字符串是否相同，返回登录结果
+
+美团验证码登录
+1.注册美团相当于向美团发送公钥
+2.验证码登录相当于请求免密码登录
+3.美团发送到手机一条验证码（手机相当于私钥）
+4.接收验证码后将验证码发送给美团
+5.美团比对验证码，返回登录结果
+
+三）远程拷贝命令scp(基于ssh的远程安全登录的)
+
+所有机器上安装openssh客户端
+yum list | grep ssh 查看需要安装哪儿个
+openssh-clients.x86_64    5.3p1-111.el6  @anaconda-CentOS-201508042137.x86_64/6.7
+yum install openssh-clients.x86_64
+
+1.远程拷贝文件
+scp 本机文件 user@host:路径/
+注：将hdp01上的/etc/profile文件拷贝到hdp02的根目录下
+scp /etc/profile root@hdp02:/
+注：将hdp01上的/etc/profile文件拷贝到hdp02的根目录下,并改名为profile.txt
+scp /etc/profile root@hdp02:/profile.txt
+2.远程拷贝目录
+scp -r 本机目录 user@host:路径/
+注：将hdp01上的/bin文件拷贝到hdp02的根目录下
+scp -r /bin root@hdp02:/home/
+注：将hdp01上的/bin文件拷贝到hdp02的根目录下,并改名为bin.bak
+scp -r /bin root@hdp02:/home/bin.bak
+3.下载文件到本地
+scp user@host:文件名 本地目录
+注：将hdp02上的/profile下载到本地并改名为profile.txt
+scp root@hdp02:/profile ./profile.txt
+4.下载目录到本地
+scp -r user@host:文件名 本地目录
+注：将hdp02上的/bin下载到本地并改名为bin.bak
+scp -r root@hdp02:/home/bin ./bin.bak
+
+数据处理，是大数据分析的一块内容，数据量小没有必要上大数据。
+高级文本处理命令：
+cut：是一个选取命令，就是将一段数据经过分析，取出我们想要的数据。一般来说，选取的信息通常是针对行来进行分析的，并不是整篇信息一起分析。
+
+cut的语法格式：
+cut [-bn][file] 或者 cut [-c][file] 或者 cut [-df][file]
+
+cut使用说明：
+cut命令从文件中的每一行剪切字节、字符和字段并将这些字节、字符和字段输出到标准输出。如果不指定file参数，cut命令将读取标准输入。必须指定 -b -c 或者-f标志之一。
+
+选项的含义：
+-d：表示自定义分隔符，默认是制表符。与-f一起使用；
+-f:依据-d分割字符将一段信息分割成多个段，用-f表示取出第几个字段的意思。
+-c：以字符为单位取出固定的字符区间
+-b：以字节为单位取出固定的字节区间，这些字节位置将忽略多字节边界，除非与-n标志一起使用。
+-n：表示取消分割多字节字符。只与-b一起使用；如果字符的最后一个字节落在由-b标志的参数范围之内，哪就会取出，否则，将抛弃该字节字符。
+
+cut使用，接受3种定位方式
+字节bytes -b
+字符char  -c
+字段fields域  -f
+
+
+练习：
+-b：
+
+取出每行的第3个字节：
+who | cut -b 3
+
+取出每行的3-5,8个字节：
+who | cut -b 3-5,8
+
+who | cut -b 8,3-5
+注意：cut命令如果使用-b选项，那么执行该命令时，cut会把-b后面的所有定位先进行从小到大的的排序，然后在提取数据，不会颠倒数据的顺序。
+
+who | cut -b -3
+who | cut -b 3-
+who | cut -b -3,3-
+
+取出全部的字符，排除重复的定位。
+who | cut -c 3-5,8
+
+星期一
+星期二
+星期三
+星期四
+星期五
+星期六
+
+cut -c 3-5 week.dat
+cut -nb 3-5 week.dat
+
+----
+域：字段
+echo $PATH | cut -d ':' -f 5
+打印PATH的第三个字段到最后
+
+echo $PATH | cut -d ':' -f 3-
+
+cat /etc/passwd | cut -d ':' -f 1,7
+
+注意：
+分隔符只能是一个字符，或者空格，如果分割符是多个字符或者字节，cut无效
+cut: the delimiter must be a single character
+
+cut的缺陷和不足：
+处理多分隔符的数据时，cut是不支持的。cut只支持单字符的分割
+
+
+sed命令：
+sed全称是Stream editor即流编辑器，sed是一种在线编辑器，一次处理一行数据，处理时，把数据先存储到临时缓冲区，称为模式空间（Pattern space），接着sed会处理缓冲区的数据，处理完成后，把缓冲区的内容输出，接着执行下一行。
+不会改变源文件的内容
+
+
+awk命令：
+awk是一个强大的文本分析工具，相对于grep的查找，sed的编辑，awk在其对数据分析并生成报告时，显得尤为强大。简单是说，awk将数据逐行的读入，以空格做为默认分隔符对每行进行切片，切开的部分再进行各种分析处理。
+
+awk主要有3个版本，awk、nawk和gawk，一般来说指gawk，gawk是GNU版本
+
+awk是一种语言，awk程序设计语言。它允许创建简短的程序，读取文件、为数据排序、处理数据、对输入执行分析计算并生成报表。
+
+使用方法：
+awk '{pattern + action}'
+pattern表示AWK在数据中查找的内容，action表示在找到匹配内容是所执行的一系列命令。{}不需要再程序中始终出现，但是他们用于根据特定的模式对一系列的执行进行分组。
+
+通常来说，awk是以文件的一行为处理单位的，awk没接收到一行数据，执行相应的命令，来处理文本。
+
+调用方式：
+awk有3中调用方式：
+1、命令行 awk [-F fields -separator] 'command' input-files
+command 是awk的命令，-F fields表示域分隔符，是可选的
+input-files是待处理的文件
+2、shell脚本方式
+将所有的awk命令写入一个文件，并使awk脚本可执行，然后awk命令解析器做为脚本的首行，以便通过awk脚本来调用，相当于shell脚本首行的#bin/bash
+
+3、将所有的awk命令插入一个单独的文件，然后调用awk -f awk脚本 input-files，-f表示加载的awk的脚本文件。
+awk -f awk.sh /root/multi.dat
+
+命令行形式执行awk：
+last -5
+打印上面结果的第一个字段
+last -5 | awk '{print $1}'
+
+显示/etc/passwd文件的账号
+cat /etc/passwd | awk -F ':' '{print $1}'
+
+显示第一列和第七列的内容，并且列与列之间用\t分割
+cat /etc/passwd | awk -F ':' '{print $1"\t"$7}'
+
+
+如果只是显示/etc/passwd的账户和账户对应的shell,而账户与shell之间以逗号分割,而且在所有行添加列名name,shell,在最后一行添加"blue,/bin/nosh"。
+
+cat /etc/passwd | awk -F ':' 'BEGIN {print "name,shell"} {print $1","$7} END {print "blue,/bin/nosh"}'
+
+搜索/etc/passwd有root关键字的所有行
+awk -F ':' '/root/{print $7}' /etc/passwd
+awk -F ':' '/root/' /etc/passwd
+
+
+awk内置变量
+awk有许多内置变量用来设置环境信息，这些变量可以被改变，下面给出了最常用的一些变量。
+
+
+ARGC               命令行参数个数
+ARGV               命令行参数排列
+ENVIRON            支持队列中系统环境变量的使用
+FILENAME           awk浏览的文件名
+FNR                浏览文件的记录数
+FS                 设置输入域分隔符，等价于命令行 -F选项
+NF                 浏览记录的域的个数
+NR                 已读的记录数
+OFS                输出域分隔符
+ORS                输出记录分隔符
+RS                 控制记录分隔符
+
+ 此外,$0变量是指整条记录。$1表示当前行的第一个域,$2表示当前行的第二个域,......以此类推。
+
+统计/etc/passwd:文件名，每行的行号，每行的列数，对应的完整行内容:
+
+#awk  -F ':'  '{print "filename:" FILENAME ",linenumber:" NR ",columns:" NF ",linecontent:"$0}' /etc/passwd
+使用printf替代print,可以让代码更加简洁，易读
+
+ awk  -F ':'  '{printf("filename:%s,linenumber:%s,columns:%s,linecontent:%s\n",FILENAME,NR,NF,$0)}' /etc/passwd
+
+
+print和printf
+awk中同时提供了print和printf两种打印输出的函数。
+
+其中print函数的参数可以是变量、数值或者字符串。字符串必须用双引号引用，参数用逗号分隔。如果没有逗号，参数就串联在一起而无法区分。这里，逗号的作用与输出文件的分隔符的作用是一样的，只是后者是空格而已。
+
+printf函数，其用法和c语言中printf基本相似,可以格式化字符串,输出复杂时，printf更加好用，代码更易懂。
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+ awk编程
+ 变量和赋值
+
+除了awk的内置变量，awk还可以自定义变量。
+
+下面统计/etc/passwd的账户人数
+
+awk '{count++;print $0;} END{print "user count is ", count}' /etc/passwd
+root:x:0:0:root:/root:/bin/bash
+......
+user count is  40
+count是自定义变量。之前的action{}里都是只有一个print,其实print只是一个语句，而action{}可以有多个语句，以;号隔开。
+
+这里没有初始化count，虽然默认是0，但是妥当的做法还是初始化为0:
+
+awk 'BEGIN {count=0;print "[start]user count is ", count} {count=count+1;print $0;} END{print "[end]user count is ", count}' /etc/passwd
+[start]user count is  0
+root:x:0:0:root:/root:/bin/bash
+...
+[end]user count is  40
+
+统计某个文件夹下的文件占用的字节数
+
+ls -l |awk 'BEGIN {size=0;} {size=size+$5;} END{print "[end]size is ", size}'
+[end]size is  8657198
+
+如果以M为单位显示:
+ls -l |awk 'BEGIN {size=0;} {size=size+$5;} END{print "[end]size is ", size/1024/1024,"M"}'
+[end]size is  8.25889 M
+注意，统计不包括文件夹的子目录。
+
+条件语句
+
+ awk中的条件语句是从C语言中借鉴来的，见如下声明方式：
+
+if (expression) {
+    statement;
+    statement;
+    ... ...
+}
+
+if (expression) {
+    statement;
+} else {
+    statement2;
+}
+
+if (expression) {
+    statement1;
+} else if (expression1) {
+    statement2;
+} else {
+    statement3;
+}
+
+
+统计某个文件夹下的文件占用的字节数,过滤4096大小的文件(一般都是文件夹):
+
+ls -l |awk 'BEGIN {size=0;print "[start]size is ", size} {if($5!=4096){size=size+$5;}} END{print "[end]size is ", size/1024/1024,"M"}'
+[end]size is  8.22339 M
+
+
+循环语句
+
+awk中的循环语句同样借鉴于C语言，支持while、do/while、for、break、continue，这些关键字的语义和C语言中的语义完全相同。
+
+数组
+
+  因为awk中数组的下标可以是数字和字母，数组的下标通常被称为关键字(key)。值和关键字都存储在内部的一张针对key/value应用hash的表格里。由于hash不是顺序存储，因此在显示数组内容时会发现，它们并不是按照你预料的顺序显示出来的。数组和变量一样，都是在使用时自动创建的，awk也同样会自动判断其存储的是数字还是字符串。一般而言，awk中的数组用来从记录中收集信息，可以用于计算总和、统计单词以及跟踪模板被匹配的次数等等。
+
+显示/etc/passwd的账户
+
+
+awk -F ':' 'BEGIN {count=0;} {name[count] = $1;count++;}; END{for (i = 0; i < NR; i++) print i, name[i]}' /etc/passwd
+0 root
+1 daemon
+2 bin
+3 sys
+4 sync
+5 games
+......
+
+这里使用for循环遍历数组
+求uid的和
+cat /etc/passwd|awk -F ':' '{sum+=$4} END {print "Sum = ", sum}'
+求uid的平均数
+cat /etc/passwd | awk -F ':' '{sum+=$4} END {print "Average = ", sum/NR}'
+求uid的最大值
+cat /etc/passwd | awk -F: '{m=m>$4?m:$4} END {print m}'
+
+
+
+crontab配置
+通过crontab 命令，我们可以在固定的间隔时间执行指定的系统指令或 shell script脚本。
+时间间隔的单位可以是分钟、小时、日、月、周及以上的任意组合。这个命令非常适合周期性的日志分析或数据备份等工作。
+
+
+服务的管理：
+service crond start/stop/restart/status/reload
+
+命令格式：
+crontab [-u user] file
+crontab [-u user] [-e|-l|-r]
+
+参数：
+-u user用来设置某个用户的crontab服务，-u hadoop
+file：file是命令文件的名字，表示将该文件做为crontab的任务列表文件并载入到crontab中。
+-e：编辑某个用户的crontab任务。如果不指定用户。则表示编辑当前用户的crontab任务。
+-l：列举某个用户的crontab任务。
+-r：删除某个用户的crontab任务。
+
+配置说明：
+基本格式
+*   *   *   *   *   COMMAND
+分  时  天  月  周  命令
+分：表示分钟从1-59，每分钟*/1表示
+时：表示小时从0-23（0表示0点）7-9表示7点到9点之间
+天：表示日期1-31
+月：表示月份1-12
+周：表示星期几，从0开始到6（0表示周天）
+
+crontab -e
+
+*/1 * * * * date >> /1.txt
+
+例子：
+30 21 * * * /usr/local/etc/rc.d/lighttpd restart
+上面的例子表示每晚的21:30重启apache。
+45 4 1,10,22 * * /usr/local/etc/rc.d/lighttpd restart
+上面的例子表示每月1、10、22日的4 : 45重启apache。
+10 1 * * 6,0 /usr/local/etc/rc.d/lighttpd restart
+上面的例子表示每周六、周日的1 : 10重启apache。
+0,30 18-23 * * * /usr/local/etc/rc.d/lighttpd restart
+上面的例子表示在每天18 : 00至23 : 00之间每隔30分钟重启apache。
+0 23 * * 6 /usr/local/etc/rc.d/lighttpd restart
+上面的例子表示每星期六的11 : 00 pm重启apache。
+* */1 * * * /usr/local/etc/rc.d/lighttpd restart
+每一小时重启apache
+* 23-7/1 * * * /usr/local/etc/rc.d/lighttpd restart
+晚上11点到早上7点之间，每隔一小时重启apache
+0 11 4 * mon-wed /usr/local/etc/rc.d/lighttpd restart
+每月的4号与每周一到周三的11点重启apache
+0 4 1 jan * /usr/local/etc/rc.d/lighttpd restart
+一月一号的4点重启apache
+--------------------------------------------------------------------------------
+时间同步：
+1、date -s
+2、配置时间服务器，集群的其他机器都跟namenode所在机器同步时间
+NTP服务器【Network Time Protocol（NTP）】是用来使计算机时间同步化的一种协议
+	检查ntp是否安装，如果未安装，则安装
+	服务器上需要安装ntp服务
+	同步机器上只需要安装ntpdate
+	yum list | grep ntp
+	yum -y install ntp.x86_64
+
+	在namenode上配置一个时间服务：
+	vi /etc/ntp.conf
+	restrict 192.168.91.0 mask 255.255.255.0 nomodify notrap
+
+	禁用自带4个server
+	server 127.127.1.0
+
+
+	修改完ntp配置后，需要重启ntpd
+	查看时间，修改时间，写入硬件。（修改时间后重启ntp服务）
+	service ntpd restart
+
+
+	客户端：
+	安装ntpdate
+	yum -y install ntpdate.x86_64
+
+	测试：
+	ntpdate mini1
+
+	配置crontab任务：
+	*/1 * * * * /usr/sbin/ntpdate mini1 >> /ntpd.log
+

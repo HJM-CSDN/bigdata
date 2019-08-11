@@ -1,0 +1,175 @@
+hdfs(详见hadoop第一天复习)
+一.读写流程
+markdown版本:
+读流程:
+1. 客户端或者用户通过调用 FileSystem 对象的 open()方法打开需要读取的文件。
+2. FileSystem 通过远程协议RPC调用 NameNode 确定文件的前几个 Block 的位置。
+   对于每一个 Block,NameNode 返回一含有那个 Block 拷贝的“元数据”，即文件基本信息；
+   接下来,DataNode 按距离值优先从本地 DataNode 节点读取数据。
+   HDFS 实例做完以上工作后，返回一个FSDataInputStream给客户端，让其从 FSDataInputStream 中读取数据。
+   FSDataInputStream 接着包装一个DFSInputStream，用来管理 DataNode 和 NameNode 的 I/O。
+
+3. NameNode 向客户端返回一个包含数据信息的地址，客户端根据地址创建一个FSDataInputStream 开始对数据进行读取。
+
+4. FSDataInputStream 根据开始时存放的前几个 Blocks 的 DataNode 的地址，连接到最近的 DataNode 上对数据开始从头读取。
+   客户端反复调用 read（）方法，以流式方式从DataNode 读取数据。
+
+5. 当读到 Block 的结尾的时候， FSDataInputStream 会关闭到当前 DataNode 的连接，然后查找能够读取下一个 Block的最好的DataNode。
+   这些操作对客户端是透明的，客户端感觉到的是连续的流，也就说读取的时候就开始查找下一个块所在的地址。
+
+6. 读取完成调用 close()方法，关闭 FSDataInputStream。
+
+写流程:(如何新建一个文件,把数据写入该文件,然后关闭该文件)
+1. Client 通过调用 FileSystem 的 create()方法来请求创建文件
+2. FileSystem 通过对 NameNode 创建一个RPC调用，在NameNode 里面创建一个新的文件，但此时该文件中没有相应数据块。
+   NameNode 进行不同的检查来确保这个文件不存在以及客户端有新建该文件的权限。
+   如果这些检查均通过,NameNode 将记录下来这个新文件的信息.FileSystem 返回一个 FSDataOutputStream 给客户端用来写入数据。
+   和读的情形一样， FSDataOutputStream 将包装一个 DFSOutputStream 用于处理DataNode 和 NameNode 之间的通信。
+   而一旦文件创建失败，客户端会收到一个 IOException，标示文件创建失败，停止后续任务。
+3. 客户端开始写数据。 FSDataOutputStream 把要写入的数据分成数据包，将其写入到内部队列,称为"数据队列"(data queue)。
+   其中的数据由 DataStreamer 来读取处理。
+   DataStreamer 的职责是让 NameNode分配新的块——通过找出合适的 DataNode——来存储作为备份而复制的数据。
+   这些DataNode 组成一个流水线，我们假设这个流水线是个三级流水线，那么里面将含有三个节点。
+   此时,DataStreamer 将数据首先写入到流水线中的第一个节点。此后由第一个节点将数据包传送并写入到第二个节点，
+   然后第二个将数据包传送并写入到第三个节点。
+4. FSDataOutputStream 维护了一个内部关于数据包(packets)的队列，里面存放等待被DataNode 确认无误的 packets 的信息。
+   这个队列称为"确认队列"(ack queue)。一个 packet 的信息被移出本队列当且仅当 packet 被流水线中的所有节点都确认无误.
+5. 当完成数据写入后,客户端对数据流调用 close 方法，在通知 NameNode 完成写入之前，这个方法将flush残留的packets，
+   并等待确认信息（ acknowledgement）。 NameNode 已经知道文件由哪些块组成(通过 DataStream 询问数据块的分配)，
+   所以它在返回成功前只需要等待数据块进行最小值复制。
+
+
+
+网络版本:
+Hdfs
+文件读取
+1.首先调用 FileSystem 对象的 open 方法，其实是一个 DistributedFileSystem 的实例
+2.DistributedFileSystem 通过 rpc 获得文件的第一批个 block 的 locations，同一 block 按照重复数会返回多个 locations，
+这些 locations 按照 hadoop 拓扑结构排序，距 离客户端近的排在前面.
+3.前两步会返回一个 FSDataInputStream 对象，该对象会被封装成 DFSInputStream 对象，
+DFSInputStream可以方便的管理datanode和namenode数据流。
+客户端调用read 方法，DFSInputStream 最会找出离客户端最近的 datanode 并连接。
+4.数据从 datanode 源源不断的流向客户端。
+5.如果第一块的数据读完了，就会关闭指向第一块的 datanode 连接，接着读取下一块。
+这些操作对客户端来说是透明的，客户端的角度看来只是读一个持续不断的流。
+6.如果第一批block 都读完了，DFSInputStream 就会去namenode 拿下一批blocks 的 location，然后继续读，
+如果所有的块都读完，这时就会关闭掉所有的流
+Hdfs的文件写入
+1.客户端通过调用 DistributedFileSystem 的 create 方法创建新文件
+2.DistributedFileSystem 通过 RPC 调用 namenode 去创建一个没有 blocks 关联的新文件，
+创建前，namenode 会做各种校验，比如文件是否存在，客户端有无权限去创建等。
+如果校验通过，namenode 就会记录下新文件，否则就会抛出 IO 异常.
+3.前两步结束后会返回 FSDataOutputStream 的对象，和读文件的时候相似，FSDataOutputStream 被封装成 DFSOutputStream，
+DFSOutputStream 可以协调 namenode 和 datanode。客户端开始写数据到 DFSOutputStream,DFSOutputStream 会把数据切成一个个小 packet，
+然后排成队列 data queue。
+4.DataStreamer 会去处理接受 data queue，他先问询 namenode 这个新的block 最适合存储的在哪几个datanode 里，
+比如重复数是3，那么就找到 3 个最适合的 datanode，把他们排成一个pipeline.
+DataStreamer 把packet 按队列输出到管道的第一个datanode 中， 第一个 datanode 又把 packet 输出到第二个 datanode 中，以此类推。
+5.DFSOutputStream 还有一个队列叫ack queue，也是有packet 组成，等待datanode 的收到响应，当pipeline 中的所有datanode
+都表示已经收到的时候，这时 ack queue 才会把对应的 packet 包移除掉。
+6.客户端完成写数据后调用 close 方法关闭写入流
+7.DataStreamer 把剩余得包都刷到pipeline 里然后等待ack 信息，收到最后一个ack后，通知 datanode 把文件标示为已完成。
+
+
+
+机架感知机制:
+    第一个block块存到离自己最近的机架,它的两个副本存到离自己最远的较为空闲的同一个机架上
+
+二.namenode工作机制
+第一次启动namenode格式化后，创建fsimage和edits文件，
+如果不是第一次启动，直接加载编辑日志和镜像文件到内存。
+
+客户端对元数据镜像增删改的请求
+
+namenode记录操作日志，更新滚动日志
+
+namenode在内存中对数据镜像增删改查
+
+namenode职责:
+    -->负责客户端请求的响应
+    -->元数据的管理(查询,修改)
+
+hdfs元数据是怎么存储的?
+    -->内存中有一份完整的元数据
+    -->磁盘中有一个"准完整"的元数据镜像
+    -->当客户端对hdfs中的文件进行新增或者修改操作,响应的记录首先被记入edits这种log日志中,
+      当客户端操作成功后,相应的元数据会更新到内存中
+    -->每隔一段时间,会由secondary namenode将namenode上积累的所有edits和一个最新的fsimage
+    下载到本地,并且加载到内存进行merge(这个过程称为checkpoint)
+
+    checkpoint的触发条件:
+        1.事务数量达到100w次
+        2.默认一个小时
+
+	checkpoint操作的触发条件配置参数：(hdfs-site.xml)
+		dfs.namenode.checkpoint.check.period=60  #检查触发条件是否满足的频率，60秒
+		dfs.namenode.checkpoint.dir=file://${hadoop.tmp.dir}/dfs/namesecondary  #secondary namenode的本地工作目录
+		dfs.namenode.checkpoint.max-retries=3  #最大重试次数
+		dfs.namenode.checkpoint.period=3600  #两次checkpoint之间的时间间隔3600秒
+		dfs.namenode.checkpoint.txns=1000000 #两次checkpoint之间最大的操作记录
+
+    namenode和secondary namenode的工作目录存储结构完全相同,所以,当namenode故障退出需要重新恢复时,可以从secondary namenode
+的工作目录中将fsimage拷贝到namenode的工作目录,以恢复namenode的元数据
+
+	可以通过hdfs的一个工具来查看edits中的信息:
+		-->bin/hdfs oev -i edits -o edits.xml
+
+三.namenode职责:
+    -->负责客户端请求的响应
+    -->元数据的管理(查询,修改)
+
+四.namenode的启动流程
+    1.加载镜像文件,还原了checkpoint时间节点前的元数据(包含目录机构,文件大小,块的大小,块的id等等信息),不包含块的存储位置
+    2.加载edits文件,还原了checkpoint时间节点到集群停止的元数据,不包含块的位置信息.（至此namenode还原的元数据唯一缺失的就是块的存储位置）
+    3.blockreport阶段,datanode启动,向namenode汇报自己所管理的块及块的id,namenode根据块的ID还原块的存储位置
+
+    4.在blockreport结束后,集群会判断,datanode的启动数量(可设置,默认为0),丢失的块的占比(可设置,默认为0.999f)
+    是否满足退出安装模式的条件，如果满足，30秒后退出安全模式。在安全模式下namenode会删除多余的块
+    （副本数为3，结果实际存储4个。ps:这种情况发生在datanode宕机，集群把宕机的datanode管理的块进行了复制，
+    而宕机的datanode又重新启动了） 还会复制低于副本数的块.
+
+
+五.secondary namenode的工作机制,日志合并步骤
+https://blog.csdn.net/WYpersist/article/details/79840776
+1.SecondaryNameNode通知NameNode准备提交edits文件，此时主节点将新的写操作数据记录到一个新的文件edits.new中。 
+2.SecondaryNameNode通过HTTP GET方式获取NameNode的fsimage与edits文件
+（在SecondaryNameNode的current同级目录下可见到 temp.check-point或者previous-checkpoint目录，这些目录中存储着从namenode拷贝来的镜像文件）。 
+3.SecondaryNameNode开始合并获取的上述两个文件，产生一个新的fsimage文件fsimage.ckpt。 
+4.SecondaryNameNode用HTTP POST方式发送fsimage.ckpt至NameNode。 
+5.NameNode将fsimage.ckpt与edits.new文件分别重命名为fsimage与edits，然后更新fstime，整个checkpoint过程到此结束。 
+
+简单版:
+第一步：将hdfs更新记录写入一个新的文件——edits.new。
+
+第二步：将fsimage和editlog通过http协议发送至secondary namenode。
+
+第三步：将fsimage与editlog合并，生成一个新的文件——fsimage.ckpt。
+        这步之所以要在secondary namenode中进行，是因为比较耗时，如果在namenode中进行，或导致整个系统卡顿。
+
+第四步：将生成的fsimage.ckpt通过http协议发送至namenode。
+
+第五步：重命名fsimage.ckpt为fsimage，edits.new为edits。
+---------------------------------------------------------------------------
+从工作过程可以看出，SecondaryNameNode的重要作用是定期通过编辑日志文件合并命名空间镜像，以防止编辑日志文件过大。
+SecondaryNameNode一般要在另一台机器上运行，因为它需要占用大量的CPU时间与namenode相同容量的内存才可以进行合并操作。
+它会保存合并后的命名空间镜像的副本，并在namenode发生故障时启用。
+---------------------------------------------------------------------------
+
+六.datanode工作机制
+  https://blog.csdn.net/qq_35641192/article/details/80303879
+    1.一个数据块在datanode上以文件形式存储在磁盘上,包括两个文件,一个是数据本身,一个是元数据包括数据块的长度,块数据的
+    校验和,以及时间戳.
+
+    2.DataNode启动后向namenode进行注册,通过后,周期性(1小时)的向namenode上报所有的块信息
+
+    3.心跳是每3秒一次,心跳返回结果带有namenode给该datanode的命令如复制块数据到另一台机器,或删除某个数据块.如果超过10分钟
+    没有收到某个datanode的心跳,则认为该节点不可用
+
+    4.集群运行中可以安全加入和退出一些机器.
+
+    datanode工作职责:
+        -->存储管理用户的文件块数
+        -->定期向namenode汇报自身所持有的block信息(通过心跳信息上报)
+
+安全模式:
+https://www.cnblogs.com/zwgblog/p/5705241.html

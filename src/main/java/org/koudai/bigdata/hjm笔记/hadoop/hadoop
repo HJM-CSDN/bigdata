@@ -1,0 +1,64 @@
+HA的运作机制
+（1）hadoop-ha集群运作机制介绍
+	所谓HA，即高可用（7*24小时不中断服务）
+	实现高可用最关键的是消除单点故障
+	hadoop-ha严格来说应该分成各个组件的HA机制
+
+（2）HDFS的HA机制
+	通过双namenode消除单点故障
+	双namenode协调工作的要点：
+		A、元数据管理方式需要改变：
+		内存中各自保存一份元数据
+		Edits日志只能有一份，只有Active状态的namenode节点可以做写操作。
+		两个namenode都可以读取edits
+		共享的edits放在一个共享存储中管理（qjournal和NFS两个主流实现）
+		B、需要一个状态管理功能模块
+		实现了一个zkfailover，常驻在每一个namenode所在的节点
+		每一个zkfailover负责监控自己所在的namenode节点，利用zk进行状态标识
+		当需要进行状态切换时，由zkfailover来负责切换
+		切换时需要防止brain split现象的发生
+
+MapReduce中的Combiner
+	1、combiner是MR程序中Mapper和Reducer之外的一种组件
+	2、combiner组件的父类就是Reducer
+	3、combiner和reducer的区别在于运行的位置：
+		Combiner是在每一个maptask所在的节点运行
+		Reducer是接收全局所有Mapper的输出结果；
+	4、combiner的意义就是对每一个maptask的输出进行局部汇总，以减小网络传输量
+
+具体实现步骤：
+	1、	自定义一个combiner继承Reducer，重写reduce方法
+	2、	在job中设置：  job.setCombinerClass(CustomCombiner.class)
+
+注意：combiner能够应用的前提是不能影响最终的业务逻辑。而且，combiner的输出kv应该跟reducer的输入kv类型要对应起来
+
+
+Hadoop的job提交流程：
+    1、客户端运行hadoop jar命令时，通过程序中的waitForCompletion(true),进行job的提交，jobPI等等，其中主要的一个
+工作就是和集群建立连接，会创建一个yarnRunner代理对象，这个对提交的时候会调用job.submit(),方法进行提交，此方法中会
+进行一系列的工作，比如确定job的状态等。
+    2、客户端向RM申请运行一个mr程序，获取一个applicationId
+    3、RM会返回给客户端一个applicationId和一个共享资源的路径，用于提交程序运行所需要的共享资源
+    4、客户端拿到共享资源的路径，就开始进行将相关资源写入到共享资源路径中，相关资源就包括程序运行所需要的jar包及其他
+文件、配置文件参数job.xml、切片信息（job.split)
+    5、写完之后客户端通过resMgrDelegate.submitApplication(appContext)方法向RM报告文件写入完毕，带着一个appContext的
+    上下文并提交应用程序。
+
+    6、Rm接收到请求后，将这个请求转给yarn的资源调度器schedule,调度器会初始化这个应用，并将此应用程序加入到调度队列中
+    （默认为容量调度），因为可能同时有很多应用在执行，可能没有资源供当前的程序跑，等待分配资源
+     ---------------------
+
+      原文：https://blog.csdn.net/cjDaShuJu_Java/article/details/79735093
+
+
+
+
+
+
+
+
+
+
+
+
+

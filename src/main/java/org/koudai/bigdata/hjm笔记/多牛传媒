@@ -1,0 +1,73 @@
+spark UDF 和 Spark UDAF了解多少？
+
+并发编程包了解多少？
+
+为什么不用HashTable而用concurrentHashMap呢？
+
+    ConcurrentHashMap提供了和Hashtable以及SynchronizedMap中所不同的锁机制。
+    Hashtable中采用的锁机制是一次锁住整个hash表，从而同一时刻只能由一个线程对其进行操作；
+    而ConcurrentHashMap中则是一次锁住一个桶。
+    ConcurrentHashMap默认将hash表分为16个桶，诸如get,put,remove等常用操作只锁当前需要用到的桶。
+    这样，原来只能一个线程进入，现在却能同时有16个写线程执行，并发性能的提升是显而易见的。
+    上面说到的16个线程指的是写线程，而读操作大部分时候都不需要用到锁。只有在size等操作时才需要锁住整个hash表。
+
+Spark的内存管理？
+
+
+
+Kafka吞吐量为什么高呢？
+   1.数据磁盘持久化：消息不在内存中cache，直接写入到磁盘，充分利用磁盘的顺序读写功能。
+   2.zero-copy：减少IO操作步骤
+   3.数据批量发送
+   4.数据压缩
+   5.Topic划分为多个partition，提高parallelism
+
+手写一个正则匹配取第一列？
+
+    https://juejin.im/post/5b96a8e2e51d450e6a2de115
+
+    https://juejin.im/post/5b99c1d6e51d450e436923aa
+
+spark中设置过哪些参数呀？
+
+JVM日志中的各个字段的含义？--直接顺手抄了桌子上的一个jvm日志
+    5.617（时间戳）: [GC（Young GC） 5.617（时间戳）: [ParNew（使用ParNew作为年轻代的垃圾回收期）: 43296K（年轻代垃圾回收前的大小）->7006K（年轻代垃圾回收以后的大小）(47808K)（年轻代的总大小）,
+    0.0136826 secs（回收时间）] 44992K（堆区垃圾回收前的大小）->8702K（堆区垃圾回收后的大小）(252608K)（堆区总大小）, 0.0137904 secs（回收时间）] [Times: user=0.03（Young GC用户耗时） sys=0.00（Young GC系统耗时）,
+    real=0.02 secs（Young GC实际耗时）]
+
+你们的一年的数据放在哪里？
+
+你们标签维度有多少？列举五个？
+    时间维度、地域维度、浏览器维度、设备维度、广告位类型维度
+
+spark的action算子？列举五个？
+    take foreach save reduce count collect countByKey
+
+snappy压缩比   parquet格式大小比例
+    说明：原始日志大小为214G左右，120+字段
+    采用csv（非压缩模式）几乎没有压缩。
+    采用parquet 非压缩模式、gzip、snappy格式压缩后分别为17.4G、8.0G、11G，达到的压缩比分别是：12、27、19。
+
+使用过的yarn命令?
+
+七日内留存率？
+
+RDD添加行号？
+zipWithIndex
+
+
+sql的关键字执行顺序、sql中on和where的区别、取用户最近一次访问日期
+    1.查询中用到的关键词主要包含六个，并且他们的顺序依次为
+    select--from--where--group by--having--order by
+    其中select和from是必须的，其他关键词是可选的，这六个关键词的执行顺序
+    与sql语句的书写顺序并不是一样的，而是按照下面的顺序来执行
+    from--where--group by--having--select--order by,
+    from:需要从哪个数据表检索数据
+    where:过滤表中数据的条件
+    group by:如何将上面过滤出的数据分组
+    having:对上面已经分组的数据进行过滤的条件
+    select:查看结果集中的哪个列，或列的计算结果
+    order by :按照什么样的顺序来查看返回的数据
+
+
+hbase的rowkey加盐后如何查询？

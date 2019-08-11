@@ -1,0 +1,584 @@
+1、spark的shuffle有几种方式
+    三种:
+        HashShuffle  SortShuffle TungstenShuffle
+
+    hashShuffle:每个Map task都会为每个reduce生成一份文件,所以最后就会有M*R个文件数量.
+       这里有一个优化的参数spark.shuffle.consolidateFiles，默认为false,当设置成true时，会对mapper output时的文件进行合并。
+
+    sortShuffle:在Spark1.2版本之后，出现了SortShuffle，这种方式以更少的中间磁盘文件产生而远远优于HashShuffle。
+       而它的运行机制主要分为两种。一种为普通机制，另一种为bypass机制。
+
+    Tungsten-sort:实现了内存的自主管理，管理方式模拟了操作系统的方式，通过Page可以使得大量的record被顺序存储在内存，
+        整个shuffle write 排序的过程只需要对指针进行运算(二进制排序)，并且无需反序列化，整个过程非常高效，对于减少GC,
+        提高内存访问效率，提高CPU使用效率确实带来了明显的提升。
+
+
+必看:https://www.cnblogs.com/yangsy0915/p/6058611.html
+2、简述MR的shuffle和Spark的shuffle过程？
+   MR:
+      首先MR的Shuffle,主要是基于磁盘的计算,如果数据量过大的话,磁盘就会产生过大io,此时性能会
+   很低,计算起来很慢,并且MR的shuffle计算是默认需要进行分组排序,由于此时数据量很大,进行分组
+   排序的时候,每个数据都要分到相同的分区,并且还要排序,资源大大消耗,毫无效率可言.
+
+   Spark:
+      Spark计算主要是基于内存,当内存写满,才会写到磁盘,这样速度很快,并且SparkShuffle的操作可以
+   不进行排序操作,这里可以设置,利用hashShuffle和consolidation机制,而且shuffle可以迭代计算,通
+   过这种设置,可以大大提高性能,并且缩短计算时间.
+
+3、RANK、DENSE_RANK以及ROW_NUMBER的区别
+   它们都说是对分过组的数据排序加序号:
+      Row_number():没有重复值的序号(即使两条记录相同,序号也不重复的),不会有相同名次 1 2 3 4
+      Dense_rank():连续的排序,两个第二名仍然跟着第三名   1 2 2 3    dense:稠密的
+      Rank():跳跃排序,两个第二名下来就是第四名  1 2 2 4
+
+4、Stage，task和job的区别与划分方式
+    Job:一个由多个任务组成的并行计算,当需要执行一个rdd的action的时候,会生成一个job
+        一般一个action对应一个job
+    Stage:每个Job被拆分成更小的被称作stage(阶段)的task(任务)组,stage彼此之间是相互
+          依赖的,各个stage会按照执行顺序依次执行.
+    Task: 一个将要被发送到Executor中的工作单元,是stage的一个任务执行单元,一般来说,一
+         个rdd有多少个partition,就会有多少个task,因为每一个task只是处理一个partition
+         上的数据
+
+        我们称为Mapreduce程序，一个Mapreduce程序就是一个Job，而一个Job里面可以有一个或多个Task，
+    Task又可以区分为MapTask和ReduceTask.一个Application和一个SparkContext相关联，每个Application中
+    可以有一个或多个Job，可以并行或者串行运行Job。Spark中的一个Action可以触发一个Job的运行。在Job里面
+    又包含了多个Stage，Stage是以Shuffle进行划分的。在Stage中又包含了多个Task，多个Task构成了Task Set。
+    Mapreduce中的每个Task分别在自己的进程中运行，当该Task运行完的时候，该进程也就结束了。和Mapreduce不
+    一样的是，Spark中多个Task可以运行在一个进程里面，而且这个进程的生命周期和Application一样，
+    即使没有Job在运行。
+
+5、flatmap和map的区别
+    map:对集合中每个元素进行操作
+    flatmap:对集合中每个元素进行操作然后再扁平化
+
+6、Foreach和map的区别
+    两个方法的共同点在于:都是用于遍历集合对象,并对于每一项执行指定的方法,
+    而两者的差异在于: foreach无返回值(准确的说返回void),map返回集合对象.
+    foreach用于遍历集合,而map用于映射(转换)集合到另一个集合.
+
+7、foreachRDD用过吗?
+    foreachRDD:DStream是抽象类,它把连续的数据流拆分成很多的小RDD数据块,这
+叫做"微批次",spark的流式处理,都是"微批次处理".foreachRDD作用于由DStream创
+建的RDD,经常用来把每一个RDD的数据写入到外部文件系统,比如文件,数据库等.
+
+8、Spark任务的提交流程
+    1.Driver端首先启动SparkSubmit进程,启动后开始与Master进行通信,此时创建了
+    一个非常重要的对象(SparkContext),接着向Master发送任务信息;
+    2.Master接收到任务信息后,开始资源调度,此时会和所有的Worker进行通信,找到
+    比较空闲的Worker,并通知Worker来取任务和启动相应的Executor;
+    3.Executor启动后,开始与Driver进行反向注册,接下来Driver开始把任务发送给相
+    应的Executor,Executor开始计算任务.
+
+9、Spark调优的几种方法
+    性能调优
+    JVM调优
+    数据倾斜调优
+    Shuffle调优
+    RDD算子调优
+    序列化调优
+    广播变量调优
+
+10.Spark-Streaming获取kafka数据的两种方式,优缺点?
+    1.Receiver方式:当一个任务从driver发送到Executor执行的时候,将数据拉取到Executor中操作,
+但是如果数据太大的话,就不能全放在内存中,这时候,Receiver通过WAL(Write-Ahead Logging:预写日志系统)
+设置了本地存储,他会存放本地,保证数据不丢失,然后使用kafka高级API通过zk来维护偏移量,保证数据的衔接性,
+其实可以说,receiver数据在zk获取的,这种方式效率低,而且极容易出现数据丢失.
+    2.Direct方式:使用Kafka底层API并且消费者直接连接在Kafka的分区上,因为createDirectStream创建的
+DirectKafkaInputDStream每个batch(批次)对应的RDD的分区与Kafka的分区一一对应,但是需要自己维护偏移量,
+迭代计算,即用即取即丢,不会给内存造成太大的压力,效率很高.
+
+10.数据倾斜解决方案
+    数据倾斜的发生一般都是一个key对应的数据过大，而导致task执行过慢，或者内存溢出，OOM，
+    一般发生在shuffle的时候，比如reducebykey，countbykey，groupbykey，容易产生数据倾斜；
+
+    如何解决数据倾斜，首先看log日志信息，因为log日志报错时候会提示在那些行，然后就是去检
+    查发生shuffle的地方，这些地方比较容易发生数据倾斜；
+
+    1.第一个方案就是聚合源数据,我们的数据一般来自于hive表,那么在生成hive表的时候,对数据
+    进行聚合,按照key进行分组,将key对应的所有value以另一种格式存储,比如拼接成一个字符串这
+    样的话,可以省略groupByKey和reduceByKey的操作,也就不用shuffle,没shuffle也就不可能出现
+    数据倾斜,如果不能完美拼接能少量拼接也能减少key对应的数据量,这样也可以提高性能.
+
+    2.第二种方案是过滤导致倾斜的key.这种方案就是说如果业务允许或者沟通过后能理解的话,我们
+    可以把大的key进行过滤,这样可以轻松解决问题.
+
+    3.第三种方案提高shuffle操作reduce并行度(reduceByKey(new...,1000)),通过提高reduce端的
+    task执行数量,来分担数据压力,也就是说将task执行数量提高,性能也会相应提高,这样方式如果在
+    运行中确实解决了数据倾斜问题最好,但是如果出现之前运行时候OOM了,加大了reduce端task的数量,
+    可以运行了,但是执行时间相当的长,那么就放弃这第三种的方案,换别的方案.
+
+    4.第四种方案利用双重聚合 用于groupByKey和reduceByKey比较试用与join，但是通常不用这样做，
+    也就是说首先第一轮对key进行打散，将原来一样的key变成不一样的key前面加前缀，相当于将一样的
+    key分了多个组，然后进行局部聚合，接着除掉每个key的前缀，然后在进行全局的聚合，进行两次聚合，
+    避免数据倾斜问题
+
+    5.第五种方案将reduce join 转换成map join，如果两个rdd进行join，有一个表比较小的话，可以将
+    小的表通过broadcast广播出去，这样每个节点的blockmanager中都有一份，这样的话根本不会发生shuffle，
+    那么也就肯定不会存在数据倾斜的问题了，如果join中有数据倾斜的情况，第一时间考虑这样方式；
+    但是如果两个表都很大，那么就不可以broadcast了（内存不足），还有就是用map join来代替reduce join，
+    也就是说牺牲一点点内存，是可以接收的；
+
+    6.第六种方案sample抽样分解聚合  也就是说将倾斜的key单拉出来，然后用一个RDD进行打乱join
+
+    7.第七种方案使用随机数和扩容表进行join  也就是说通过flatmap进行扩容，然后在将随机数打入进去，
+      在进行join，这样的话不能根本的解决数据倾斜，但是我可以有效的缓解数据倾斜的问题，也会提高性能
+
+11.dataframe和dataset的区别
+
+    其实dataset就是dataframe的升级版，相当于dataframe是dataset的子集，主要区别在于，
+    在spark2.0以后的dataset添加的编码器，在dataframe中他不是面向对象的编程思维，
+    而在dataset中变成面向对象编程，同时dataset相当于dataframe和rdd的整合版，操作更加灵活
+    dataframe 与 dataset统一,dataframe是dataset[ROW]类型的别名
+    dataframe是一个dataset[row]类型,也就是可以放任何类型,所以dataframe是一个弱类型对象.
+    dataset是一个强类型对象.推荐操作dataset
+
+12.yarn-client模式的运行原理
+    通过spark-submit shell脚本提交任务到yarn上，首先通过jvm启动一个线程执行脚本任务，
+    然后启动driver，启动完成后driver会向RM申请启动applicationmaster，此时RM接收到请
+    求后会通知NM启动一个applicationmaster（ExecutorLauncher），applicationmaster启
+    动后向RM申请对应的executor，RM通知其他的NM启动executor进程，此时executor启动后，
+    会向driver反向注册自己，driver接收到注册信息，就知道我的任务要在那个NM的executor
+    启动了，然后开始执行相应的spark代码作业，一行一行执行，而这种模式driver只负责划分
+    stage和task和各种的资源调度，applicationmaster负责申请executor
+
+13.Spark读取数据生成RDD分区默认多少
+    testFile算子的参数minPartitions的默认值为defaultMinPartitions，该方法的实现代码
+    为math.min(defaultParallelism, 2)，其中defaultParallelism与CPU的核数有关系，也
+    就是说默认分区数量是取cpu的核数和2的最小值
+
+
+
+
+拓展:
+一.MR和Spark的区别:
+    1.MR基于磁盘计算引擎，Spark基于内存计算引擎；
+    2.Spark可以进行迭代计算，而MR不可以，他只是Map阶段和Reduce阶段！
+
+   目前MapReduce框架都是把中间结果写入到磁盘中,带来大量的数据复制,磁盘IO和序列化开销
+
+二.broadcast的实现方式
+    BitTorrentBroadcast
+    TreeBroadcast
+    HttpBroadcast
+    TorrentBroadcast，
+
+三.需求:关于sparksql操作hive，读取本地csv文件并以parquet的形式装入hive中
+https://www.cnblogs.com/Gxiaobai/p/9582145.html
+
+四.Spark任务生成和提交的四个阶段
+   1 RDD的生成阶段:
+        根据依赖,Driver端会发生一系列的RDD
+   2 stage划分:
+        调用DAGScheduler:Driver端生成
+   3 task的生成:
+        调用TaskScheduler(driver端生成的)
+   4 任务的提交
+        Worker端生成
+
+补充:Spark运行架构特点
+    每个Application都有自己专属的Executor进程,并且该进程在Application运行期间一直驻留,Executor进程以多线程的方式运行task
+    Spark运行过程与资源管理器无关,只要能够获取Executor进程并保持通信即可
+    Task采用了数据本地化和推测执行等优化机制
+        (数据本地化:计算向数据靠拢,移动计算而不是移动数据)
+
+五.cache()与persist()的区别!!!!
+    会被重复使用的但是不能太大的RDD需要cache,cache()调用了persist(),
+    区别在于cache只有一个默认的缓存级别MEMORY_ONLY,而persist可以根据
+    情况设置其它的缓存级别,StorageLevel类中有12种缓存级别.
+
+cache 与 checkpoint的区别
+
+    cache用于会被重复使用并且不太大的RDD，因为cache是放在内存里的cache
+    机制是每计算出一个要 cache 的 partition 就直接将其 cache 到内存了。
+    但 checkpoint 没有使用这种第一次计算得到就存储的方法，而是等到 job
+    结束后另外启动专门的 job 去完成 checkpoint 。 也就是说需要 checkpoint
+    的 RDD 会被计算两次。因此，在使用 rdd.checkpoint() 的时候，
+    建议加上 rdd.cache()， 这样第二次运行的 job 就不用再去计算该 rdd 了，
+    直接读取 cache 写磁盘。
+
+checkpoint：
+	什么时候需要做检查点？
+		有时候中间结果数据或者shuffle后的数据需要在以后的job中经常调用，此时需要做checkpoint
+	推荐最好把数据checkpoint到HDFS，保证数据安全性的前提下也便于集群所有节点能够获取到
+	checkpoint的目的？提高运算效率、保证数据的安全性
+
+	步骤：
+	1、设置checkpoint的目录
+	sc.setCheckpointDir("hdfs://node01:9000/cp-20180830-1")
+
+	2、把中间结果进行缓存
+	val rdd2 = rdd1.cache()
+
+	3、进行checkpoint
+	rdd2.checkpoint
+
+	rdd2.getCheckpointFile // 获取checkpoint的地址
+	rdd2.isCheckpointed // 查看是否checkpoint
+六:stage划分
+    划分stage的目的是为了生成task,划分stage的依据是查看RDD之间是否可能发生宽依赖(shuffle)
+    task的生成一定是在stage的范围之内的
+    stage的划分过程:从最后一个RDD开始,调用递归,从后往前推,找该RDD和父RDD之间的依赖关系,
+    如果是窄依赖,会继续找父RDD的RDD,如果是宽依赖,就会从该RDD开始到前面的所有RDD划分为一
+    个stage,递归的出口是找不到父RDD,最后把所有的RDD划分为一个stage
+
+    一个Job会被拆分为多组Task，每组任务被称为一个Stage就像Map Stage， Reduce Stage
+    简单的说是以shuffle和result这两种类型来划分。在Spark中有两类task，一类是shuffleMapTask，
+    一类是resultTask，第一类task的输出是shuffle所需数据，第二类task的输出是result，stage的划分也以此为依据，
+    shuffle之前的所有变换是一个stage，shuffle之后的操作是另一个stage。
+---------------------
+
+    ShuffleMapStage:shuffle之前的stage
+    ResultStage:shuffle之后的stage,产生结果
+    因此,一个Job有一个或者多个Stage,但是至少有一个ResultStage
+
+概念扩展:
+   RDD不可变,是只读的,只能提供粗粒度转换,不是个针对某个数据项的细粒度修改(如不适合网页爬虫)
+   转换操作(Transformation)-->动作操作(Action)
+   惰性调用,管道化,避免同步等待,不需要保存中间结果,每次操作变得简单
+   RDD能够高效计算的原因:
+       1 高效容错性
+          现有容错机制:数据复制或者记录日志
+          RDD具有天生的容错性:血缘关系,重新计算丢失分区,无需回滚系统,重算过程在不同节点之间并行,只记录粗细粒度的操作
+       2 中间结果持久化到内存,数据在内存中的多个RDD操作之间进行传递避免了不必要的读写磁盘开销
+       3 存放的数据可以是Java对象,避免了不必要的对象序列化和反序列化
+
+    宽依赖:存在一个父RDD的一个分区对应一个子RDD的多个分区
+
+    RDD运行过程:
+        创建RDD对象
+        SparkContext负责计算RDD之间的依赖关系,构建DAG
+        DAGScheduler负责把DAG图分解成多个Stage,每个Stage中包含了多个task,每个Task会被TaskScheduler分给各个Worker上
+        的Executor去执行
+
+   SparkSQL(目前支持scala python java三种语言,支持SQL-92规范
+        Spark是线程级并行,而MapReduce是进程级并行,因此Spark在兼容hive的实现上存在线程安全问题,所以Shark抛弃,转到了
+        Spark SQL开发.
+
+        Spark SQL增加了SchemaRDD(即带有Schema信息的RDD),使用户可以在Spark SQL中执行SQL语句,
+            SchemaRDD可以封装多种数据源:Hive,HDFS,Cassandra,JSON
+            SchemaRDD后来版本演化为了DataFrame.
+
+   Spark三种部署方式:
+       1 standalone
+       2 spark on Mesos
+       3 spark on Yarn
+
+
+
+Akka的api:
+    ActorSystem对象,负责创建actor
+    preStart方法:生命周期方法,最为初始化用途,在构造器之后,receive方法之前,只执行一次
+    receive方法:在生命周期方法之后,会不断地执行,用来接收其他actor发送过来的请求
+
+Spark任务的本质是对我们编写的RDD的依赖关系切分成一个个Stage,
+将Stage按照分区分批次的生成TaskSet发送到Executor进行任务的执行.
+
+Spark任务分两种:
+    1.shuffleMapTask:shuffle之前的task
+    2.resultTask:shuffle之后的task
+Spark调度模式-FIFO和FAIR:
+    Spark中的调度模式主要有两种：FIFO和FAIR。默认情况下Spark的调度模式是FIFO
+    （先进先出），谁先提交谁先执行，后面的任务需要等待前面的任务执行。
+    而FAIR（公平调度）模式支持在调度池中为任务进行分组，不同的调度池权重不同，
+    任务可以按照权重来决定执行顺序。对这两种调度模式的具体实现，接下来会根据
+    spark-1.6.0的源码来进行详细的分析。使用哪种调度器由参数spark.scheduler.mode来设置，
+    可选的参数有FAIR和FIFO，默认是FIFO。
+    ---------------------
+
+Spark资源调度有两种方式:
+    1.尽量打散方式(系统默认)
+    2.尽量集中方式
+
+!!!--关于任务生成和提交流程的总结(重点!!!)十八步
+(Driver端)
+Application
+把App打包上传到集群:
+    spark-submit \
+    --class Sparkday01.xxx \
+    --master spark://min1:7077 \
+    /root/xxx.jar
+
+(Driver端)
+1.调用SparkSubmit类,内部执行submit->doRunMain->通过反射获取应用程序的
+主类对象->执行主类的main方法
+
+2.构建SparkConf和SparkContext对象,在SparkContext入口类做了三件事,创建
+了SparkEnv对象(创建了ActorSystem对象),TaskScheduler(用来生成并发送task
+给Executor),DAGScheduler(用来划分Stage)
+
+3.ClientActor将任务信息封装到ApplicationDescription对象里并且提交给Master
+
+(Master端)
+4.Master收到ClientActor提交的任务信息后,把任务信息存到内存中,然后又将任务信息放到
+队列中(waitingApps)
+
+5.当开始执行这个任务信息时,调用scheduler方法,进行资源调度.
+
+6.将调度好的资源封装到LaunchExecutor并发送给对应的Worker
+
+(Worker端)
+7.Worker接收到Master发送过来的调度信息(LaunchExecutor)后,
+将信息封装成一个ExecutorRunner对象
+
+8.封装成ExecutorRunner后,调用ExecutorRunner的start
+方法,开始启动CoarseGrainedExecutorBackend对象
+
+9.Executor启动后DriverActor进行反向注册
+
+10.与DriverActor注册成功后,创建一个线程池(ThreadPool),用来执行任务
+
+(Driver端)
+11.当所有的Executor注册完成后,意味着作业环境准备好了,Driver端会结束
+与SparkContext对象的初始化
+
+12.当Driver初始化后(创建了一个sc实例),会继续执行我们自己提交的App的
+代码,当触发了Action的RDD算子时,就触发了一个job,这是就会调用DAGScheduler
+对象进行Stage划分
+
+13.DAGScheduler开始进行Stage划分
+
+14.将划分好的Stage按照分区生成一个一个的task,并且封装到TaskSet对象,然后
+TaskSet提交到TaskScheduler
+
+15.TaskScheduler接收到提交过来的TaskSet,拿到一个序列化器,对TaskSet序列化,
+将序列化好的TaskSet封装到LaunchExecutor并提交到DriverActor
+
+16.把LaunchExecutor发送到Executor上
+
+(Worker端)
+17.Executor接收到DriverActor发送过来的任务(LaunchExecutor),会将其封装成
+TaskRunner,然后从线程池中获取线程来执行TaskRunner
+
+18.TaskRunner拿到反序列化器,反序列化TaskSet,然后执行App代码,也就是对RDD
+分区上执行的算子和自定义函数
+
+
+Spark中的算子：
+    transformation算子：                   action算子：                   shuffle算子：
+        map                                  count                          distinct
+        filter                               collect                        reduceByKey/groupBy/groupByKey
+        flatMap                              reduce                         aggregateByKey/combineByKey
+        sample                               lookup                         sortBy/sortByKey
+        groupByKey                           save                           coalesce/repartition
+        reduceByKey                          first                          join/subtract/insection
+        union                                take
+        join                                 takeOrdered(top取反）
+        cogroup                              foreach
+        mapValues                            countByKey
+        sort
+        partitionBy
+
+
+Spark Shuffle过程
+	shuffle操作，是在Spark操作中调用了一些特殊的算子才会触发的一种操作，
+	shuffle操作，会导致大量的数据在不同的节点之间进行传输，
+	因此，shuffle过程是Spark中最复杂、最消耗性能的一种操作
+
+	比如：reduceByKey算子会将上一个RDD中的每个key对应的所有value都聚合成一个value，然后生成一个新的RDD，
+	新的RDD的元素类型就是<key, value>的格式，每个key对应一个聚合起来的value，
+	在这里，最大的问题在于，对于上一个RDD来说，并不是一个key对应的所有的value都在一个partition中的，
+	更不是不太可能key的所有value都在一个节点上，
+	对于这种情况，就必须在集群中将各个节点上同一个key对应的values统一传输到一个节点上进行聚合处理，
+	这个过程势必会发生大量的网络IO。
+
+Spark Shuffle 过程:
+shuffle过程中分为shuffle write和shuffle read，而且会在不同的stage中进行的
+
+	在进行一个key对应的values的聚合时，
+	首先，上一个stage的每个map task就必须保证将自己处理的当前分区中的数据相同key数据写入一个分区文件中，
+	可能会多个不同的分区文件，
+	接着下一个stage的reduce task就必须从上一个stage的所有task所在的节点上，
+	从各个task写入的多个分区文件中找到属于自己的分区文件，
+	然后将属于自己的分区数据拉取过来，
+	这样就可以保证每个key对应的所有values都汇聚到一个节点上进行处理和聚合，
+	这个过程就称之为shuffle！！！
+
+
+shuffle过程中的分区排序问题
+	默认情况下，shuffle操作是不会对每个分区中的数据进行排序的
+
+	如果想要对每个分区中的数据进行排序，可以使用三种方法：
+	1、使用mapPartitions算子把每个partition取出来进行排序
+		rdd.mapPartitons(_.toList.sortBy(_._2).iterator)
+	2、使用repartitionAndSortWithinPartitions（该算子是对RDD进行重分区的算子），在重分区的过程中同时就进行分区内数据的排序
+	3、使用sortByKey对所有分区的数据进行全局排序
+
+	以上三种方法，mapPartitions代价比较小，因为不需要进行额外的shuffle操作，
+	repartitionAndSortWithinPartitions和sortByKey可能会进行额外的shuffle操作，因此性能并不是很高
+
+
+会导致shuffle的算子
+	1、byKey类的算子：比如reduceByKey、groupByKey、sortByKey、aggregateByKey、combineByKey
+	2、repartition类的算子：比如repartition（少量分区变成多个分区会发生shuffle）、repartitionAndSortWithinPartitions、coalesce
+	（需要指定是否发生shuffle）、partitionBy
+	3、join类的算子：比如join（先groupByKey后再join就不会发生shuffle）、cogroup
+	注意：首先对于上述操作，能不用shuffle操作，就尽量不用，尽量使用不发生shuffle的操作。
+		  其次，如果使用了shuffle操作，那么肯定要进行shuffle的调优，甚至是解决遇到的数据倾斜问题。
+
+
+	shuffle操作是spark中唯一最消耗性能的过程
+	因此也就成了最需要进行性能调优的地方，最需要解决线上报错的地方，也就是唯一可能出现数据倾斜的地方
+
+	为了实时shuffle操作，spark才有stage的概念，在发生shuffle操作的算子中，需要进行stage的划分
+	shuffle操作的前半部分，属于上一个stage的范围，通常称之为map task，
+	shuffle操作的后半部分，属于下一个stage的范围，通常称之为reduce task，
+	其中map task负责数据的组织，也就是将同一个key对应的value都写入同一个下游task对应的分区文件中，
+	其中reduce task负责数据的聚合，也就是将上一个stage的task所在的节点上，将属于自己的各个分区文件都拉取过来进行聚合
+
+	map task会将数据先保存在内存中，如果内存不够时，就溢写到磁盘文件中，
+	reduce task会读取各个节点上属于自己的分区磁盘文件到自己节点的内存中进行聚合。
+
+	由此可见，shuffle操作会消耗大量的内存，因为无论是网络传输数据之前还是之后，
+	都会使用大量内存中数据结构来实施聚合操作，
+	在聚合过程中，如果内存不够，只能溢写到磁盘文件中去，
+	此时就会发生大量的网络IO，降低性能。
+
+	此外，shuffle过程中，会产生大量的中间文件，也就是map side写入的大量分区文件，
+	这些文件会一直保留着，直到RDD不再被使用，而且被gc回收掉了，才会去清理中间文件，
+	这主要是为了：如果要重新计算shuffle后RDD，那么map side不需要重新再做一次磁盘写操作，
+	但是这种情况下，如果在应用程序中一直保留着对RDD的引用，
+	导致很长的时间以后才会进行回收操作，
+	保存中间文件的目录，由spark.local.dir属性指定
+
+	所以，spark性能的消耗体现在：内存的消耗、磁盘IO、网络的IO
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+1、有的人浅薄，有的人金玉其表败絮其中。有一天，你会遇到一个彩虹般绚烂的人，当你遇到这个人后，会觉得其他人都只是浮云而已。——《怦然心动》
+
+2、我所认为最深沉的爱,莫过于分开以后,我将自己活成了你的样子。——《这个杀手不太冷》
+
+3、重要的事往往最难以启齿，因为言语会缩小其重要性；要让素昧平生的人在意你生命中的美好事物，原本就不容易。——《肖申克的救赎》
+
+4、如果再也不能见到你，祝你早安，午安，晚安。——《楚门的世界》
+
+5、不知道从什么时候开始，在什么东西上面都有个日期，秋刀鱼会过期，肉罐头会过期，连保鲜纸都会过期，我开始怀疑，在这个世界上，还有
+   什么东西是不会过期的。——《重庆森林》
+
+6、其实“醉生梦死”只不过是她跟我开的一个玩笑，你越想知道自己是不是忘记的时候，你反而记得更清楚。我曾经听人说过，当你不能够再拥有，
+   你唯一可以做的，就是令自己不要忘记。——《东邪西毒》
+
+7、趁年轻，好好利用这个机会，尽力去尝遍所有痛苦，这种事可不是一辈子什么时候都会遇到的。——《霍乱时期的爱情》
+
+8、当然要迷失方向，才能到达一个无人能找到的地方。——《加勒比海盗》
+
+9、我甚至连他的一张照片都没有，他只活在我的记忆里。——《泰坦尼克号》
+
+10、这么多年，这么多人经过我的生活，可是为什么偏偏是你，看起来好像最应该是过客的你，在我心中占据了这么重的地位……——《One Day》
+
+11、一直以为我跟何宝荣不一样，原来寂寞的时候，所有的人都一样。——《春光乍泄》
+
+12、我已经老了，有一天，在一处公共场所的大厅里，有一个男人向我走来。他主动介绍自己，他对我说：“我认识你，永远记得你。那时候，
+    你还很年轻，人人都说你美，现在，我是特为来告诉你，对我来说，我觉得现在你比年轻的时候更美，那时你是年轻女人，与你那时的面貌
+    相比，我更爱你现在备受摧残的面容。——《情人》
+
+13、我们每个人都生活在各自的过去中，人们会用一分钟的时间去认识一个人，用一小时的时间去喜欢一个人，再用一天的时间去爱上一个人，
+    到最后呢，却要用一辈子的时间去忘记一个人。——《廊桥遗梦》
+
+14、如果我从没有品尝过温暖的感觉，也许我不会这样寒冷；如果我从没有感受过爱情的甜美，我也许就不会这样地痛苦；如果我从来不曾离开
+    过我的房间，我就不会知道我原来是这样的孤独。——《剪刀手爱德华》
+
+15、阻止了我的脚步的，并不是我所看见的东西，而是我所无法看见的那些东西。你明白么？我看不见的那些。在那个无限蔓延的城市里，什么
+    东西都有，可惟独没有尽头。——《海上钢琴师》
+
+16、我在最好的时候碰到你,是我的运气。可惜我没时间了。想想,说人生无悔,都是赌气的话。人生若无悔,那该多无趣啊。我心里有过你。可我
+    也只能到喜欢为止了。——《一代宗师》
+
+17、我要你知道,在这个世界上总有一个人是等着你的,不管在什么时候,不管在什么地方,反正你知道,总有这么个人。——《半生缘》
+
+18、以前我以为有一种鸟一开始就会飞，飞到死亡的那一天才落地。其实它什么地方也没去过，那鸟一开始就已经死了。我曾经说过不到最后一
+    刻我也不会知道最喜欢的女人是谁，不知道她现在在干什么呢？天开始亮了，今天的天气看上去不错，不知道今天的日落会是怎么样的呢？
+    ——《阿飞正传》
+
+19、如果当初我勇敢，结局是不是不一样。如果当时你坚持，回忆会不会不一般。最终我还是没说，你还是忽略。——《情书》
+
+20、不管何时何地做你想做的事永远都不嫌晚
+    你可以改变 也可以不变 没有什么硬性规定
+    我们可能做得很好 也可能很糟
+    我希望你能充分利用时间
+    希望你能看到令你吃惊的东西
+    希望你感受到从未有过的感觉
+    希望你遇到具有不同观点的人
+    希望你过上让你自豪的生活
+    如果你发现生活不如意
+    我希望你有勇气从头再来
+
+——《本杰明·巴顿奇事》
+
+21、“前面漆黑一片，什么也看不到。”“也不是，天亮后会很美的。”——《喜剧之王》
+
+22、她可以褪色，可以枯萎，怎样都可以，但只要我看她一眼，万般柔情便涌上心头。——《洛丽塔》
+
+23、那么，你是想放手一搏，还是要等到年华老去，心中充满遗憾，孤独地迈向黄泉路？——《盗梦空间》
+
+24、没有人的人生是完美的，但生命的每一刻都是美丽的。——《美丽人生》
+
+25、人的一生如果一事无成，那岂不是很可惜。——《美国往事》
+
+26、有些人一分钟内过尽一生。——《闻香识女人》
+
+27、我从来都无法得知，人们是究竟为什么会爱上另一个人，我猜也许我们的心上都有一个缺口，它是个空洞，呼呼的往灵魂里灌着刺骨的寒风，
+    所以我们急切的需要一个正好形状的心来填上它，就算你是太阳一样完美的正圆形，可是我心里的缺口，或许却恰恰是个歪歪扭扭的锯齿形，
+    所以你填不了。——《面纱》
+
+28、你想不到我多渴望和你做爱，但我绝不会告诉别人，尤其你，除非严刑逼供，否则我绝不会说，说我想和你做爱，不仅做一次，是做完又做。
+    除非发神经……否则不会透露，我想和你做爱，现在就想做，做足一生一世。——《美丽人生》（第二次出现了）
+
+29、不记得了也好，忘却也是一种幸福。——《功夫》
+
+30、为什么我会流泪呢？原来是洋葱。——《洋葱》
+
+31、因为你，我愿意成为一个更好的人，不想成为你的包袱，因此发奋努力，只是为了想要证明我足以与你相配。——《侧耳倾听》
+
+32、许多年过去了，人们说陈年旧事可以被埋葬，然而我终于明白这是错的，因为往事会自行爬上来。——《追风筝的人》
+
+33、如果你说你在下午四点来，从三点钟开始，我就开始感觉很快乐，时间越临近，我就越来越感到快乐。到了四点钟的时候，我就会坐立不安，
+    我发现了幸福的价值，但是如果你随便什么时候来，我就不知道在什么时候准备好迎接你的心情了。——《小王子》
+
+34、当你最认为困难的时候，其实就是你最接近成功的时候。——《当幸福来敲门》
+
+35、我不知道离别的滋味是这样凄凉，我不知道说声再见要这么坚强。——《千与千寻》
+
+36、不管前方的路有多苦，只要走的方向正确，不管多么崎岖不平，都比站在原地更接近幸福。——《千与千寻》

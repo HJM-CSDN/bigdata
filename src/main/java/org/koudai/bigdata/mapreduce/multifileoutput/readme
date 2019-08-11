@@ -1,0 +1,25 @@
+*
+ *输入数据
+ *	hello world
+ *	hi qianfeng
+ *	Hi qianfeng
+ *	Hello Qianfeng
+ *	QQ
+ *	163.com world
+ *	1603 88
+ *	@qq.com
+ *	123
+ *	123
+ *	(123) 100
+
+ *单词首字母为a-z的单词放到一个输出文件，并统计
+ *单词首字母为A-Z的单词放到一个输出文件，并统计
+ *单词首字母为0-9的单词放到一个输出文件，并统计
+ *单词首字母为其它的单词放到一个输出文件，并统计
+ *
+关键代码：
+MyReducer类中：
+mos = new MultipleOutputs<Text, Text>(context);
+mos.write("az", key, new Text(counter+""));
+main函数中：
+MultipleOutputs.addNamedOutput(job, "az", TextOutputFormat.class, Text.class, Text.class);
