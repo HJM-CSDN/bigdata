@@ -151,11 +151,46 @@ RDB使用fork()产生子进程进行数据的持久化，如果数据比较大�
         cluster.close();
     }
 
-重点:
+
 redis的雪崩和击穿!!!
 https://blog.csdn.net/lala12d/article/details/82777742
 
 redis存的类型
 
+redis的原子性、事务性：
 
-redis的
+
+1.安装redis
+https://www.bilibili.com/video/av49517046?p=2
+https://www.runoob.com/redis/redis-conf.html
+
+    1.安装gcc环境
+    [deployer@t06 ~]$ sudo yum -y install gcc automake autoconf libtool make
+     tar -zxvf redis-5.0.4.tar.gz
+     cd redis-5.0.4
+     make PREFIX=/usr/local/redis install
+
+     [deployer@t06 bin]$ pwd
+     /usr/local/redis/bin
+
+密码设置为unicom
+
+守护线程启动方式：
+[deployer@t06 redis]$ ./bin/redis-server ./redis.conf
+26191:C 30 Aug 2019 11:37:34.147 # oO0OoO0OoO0Oo Redis is starting oO0OoO0OoO0Oo
+26191:C 30 Aug 2019 11:37:34.147 # Redis version=5.0.4, bits=64, commit=00000000, modified=0, pid=26191, just started
+26191:C 30 Aug 2019 11:37:34.147 # Configuration loaded
+[deployer@t06 redis]$
+
+[deployer@t06 redis]$ ps -ef | grep redis
+deployer 26192     1  0 11:37 ?        00:00:00 ./bin/redis-server *:6379
+deployer 26537 19287  0 11:38 pts/11   00:00:00 grep --color=auto redis
+[deployer@t06 redis]$
+
+持久化：
+持久化时间在redis.conf里可以更改持久化方式
+因此，如果数据还没来得及持久化，然后宕机，会丢失数据
+默认持久化时间为15分钟(900s)，可以到配置文件中修改。
+通过语句 shutdown 正常关闭也会做持久化机制。
+通过kill -9 杀死进程会导致数据丢失
+
