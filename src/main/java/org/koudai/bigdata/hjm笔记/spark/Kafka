@@ -265,16 +265,51 @@ DirectKafkaInputDStream每个batch(批次)对应的RDD的分区与Kafka的分区
 
 Kafka消息不能重复消费？
 同一topic的一条消息只能被同一个consumer group内的一个consumer消费。
+`````````````````````````````````````````````````````````````````````````````````````````````````````````````
 
+操作：
+进入bin目录
+/opt/cloudera/parcels/CDH/bin
 创建Kafka分区：
-·bin/kafka-topics.sh --create --zookeeper min1:2181 --replication-factor 1 --partitions 1 --topic test
+·bin/kafka-topics.sh --create --zookeeper s03:2181 --replication-factor 1 --partitions 1 --topic test
+
+kafka-topics.sh --create --zookeeper s03:2181 --replication-factor 1 --partitions 1 --topic hjmtopic3
+创建一个备份六个分区：
+·bin/kafka-topics --create --zookeeper s03:2181 --replication-factor 1 --partitions 1 --topic hjmtest
+
+查看所有topic：
+·bin/kafka-topics --list --zookeeper s03:2181
+
+kafka-topics --list --zookeeper s03:2181,s04:2181,s05:2181,s06:2181,s07:2181
+
+增加分区
+·bin/kafka-topics --zookeeper s03:2181 --alter --topic hjmtest --partition 8
+
+消费者：
+·bin/kafka-console-consumer --zookeeper s03:2181,s04:2181,s05:2181,s06:2181,s07:2181 --topic hjmtest(低版本）
+高版本命令：
+kafka-console-consumer --bootstrap-server s10:9092,s11:9092,s12:9092 --topic hjm_kafka --from-beginning
+
+删除分区（1、删除topic，2、删除zk注册信息，3、删除源数据）：
+1.
+·bin/kafka-topics --delete --zookeeper s03:2181 --topic hjmtest
+kafka-topics --delete --zookeeper s03:2181 --topic hjmtopic2
+kafka-topics --delete --zookeeper s03:2181 --topic hjmtopic3
+2.
+cd /opt/cloudera/parcels/CDH/bin
+zookeeper-client
+rmr /brokers/topics/hjmtest
+3.
+删除源数据，删除分区源数据（如果只有一个topic，直接把data删掉）
+
+cd /var/local/kafka/data
+rm -rf hjmtest-*
+
+
+
 
 
 Kafka性能调优：
-
-
-
-
 
 
 1、kafka在高并发的情况下，如何避免消息丢失和消息重复

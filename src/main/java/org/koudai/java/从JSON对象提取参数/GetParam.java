@@ -19,7 +19,7 @@ public class GetParam {
         JSONArray jsonArray = jsonObject.getJSONArray(field);
        // System.out.println(jsonArray);
         if (jsonArray != null && jsonArray.size() > 0){
-            return jsonArray.getString(0);
+            return jsonArray.getString(0);            
         }
         return null;
     }

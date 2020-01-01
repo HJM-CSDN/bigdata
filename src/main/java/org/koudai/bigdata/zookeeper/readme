@@ -22,3 +22,15 @@ zookeeper
 
 6、选举机制
 
+zookeeper操作：
+https://www.cnblogs.com/senlinyang/p/7833669.html
+
+ls命令
+
+　　ls命令用于获取路径下的节点信息，注意路径为绝对路径，如:ls /storm
+
+[assignments, storms, errors, supervisors, workerbeats]
+ls2命令
+
+　　ls2命令是ls命令的增强版，比ls命令多输出本节点信息，如：ls2 /storm
+

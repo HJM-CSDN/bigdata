@@ -1,0 +1,68 @@
+# 定义这个agent中各组件的名字
+a1.sources = r1
+a1.sinks = k1
+a1.channels = c1
+
+# 描述和配置source组件：r1
+a1.sources.r1.type = TAILDIR
+a1.sources.r1.positionFile = /app/data1/flume/position_dir/position2.json
+a1.sources.r1.filegroups = file1
+
+# 模拟数据
+a1.sources.r1.filegroups.file1=/app/data1/flume/data/hjm.txt
+
+# 描述和配置sink组件：k1
+a1.sinks.k1.type = org.apache.flume.sink.kafka.KafkaSink
+a1.sinks.k1.kafka.topic = hjmtopic2
+a1.sinks.k1.kafka.bootstrap.servers = s10:9092,s11:9092,s12:9092
+a1.sinks.k1.kafka.flumeBatchSize = 20
+a1.sinks.k1.kafka.producer.acks = 1
+a1.sinks.k1.kafka.producer.linger.ms = 1
+a1.sinks.ki.kafka.producer.compression.type = snappy
+
+# 描述和配置channel组件，此处使用是内存缓存的方式
+a1.channels.c1.type = memory
+a1.channels.c1.capacity = 1000
+a1.channels.c1.transactionCapacity = 100
+
+# 描述和配置source  channel   sink之间的连接关系
+a1.sources.r1.channels = c1
+a1.sinks.k1.channel = c1
+
+#````````````````````````````````````````````````````````````````````````````````````````````````
+# 定义这个agent中各组件的名字
+a1.sources = r2
+a1.sinks = k2
+a1.channels = c2
+
+# 描述和配置source组件：r2
+a1.sources.r2.type = TAILDIR
+a1.sources.r2.positionFile = /app/data1/flume/position_dir/position3.json
+a1.sources.r2.filegroups = file1
+
+# 模拟数据
+a1.sources.r2.filegroups.file1=/app/data1/flume/data/hjm.txt
+
+# 描述和配置sink组件：k2
+a1.sinks.k2.type = org.apache.flume.sink.kafka.KafkaSink
+a1.sinks.k2.kafka.topic = hjmtopic3
+a1.sinks.k2.kafka.bootstrap.servers = s10:9092,s11:9092,s12:9092
+a1.sinks.k2.kafka.flumeBatchSize = 20
+a1.sinks.k2.kafka.producer.acks = 1
+a1.sinks.k2.kafka.producer.linger.ms = 1
+a1.sinks.ki.kafka.producer.compression.type = snappy
+
+# 描述和配置channel组件，此处使用是内存缓存的方式
+a1.channels.c2.type = memory
+a1.channels.c2.capacity = 1000
+a1.channels.c2.transactionCapacity = 100
+
+# 描述和配置source  channel   sink之间的连接关系
+a1.sources.r2.channels = c2
+a1.sinks.k2.channel = c2
+————————————————---------------------------------------------------------
+
+启动flume后在kafka查看消息：
+./bin/kafka-console-consumer  --zookeeper s03:2181,s04:2181,s05:2181,s06:2181,s07:2181 --topic hjmtest --from-beginning
+低版本的kafka可以使用以上的命令,但是在高版本的kafka中需要使用如下命令才行:
+·/bin/kafka-console-consumer --bootstrap-server s10:9092,s11:9092,s12:9092 --topic hjmtest --from-beginning

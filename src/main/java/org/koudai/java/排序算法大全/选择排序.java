@@ -16,7 +16,8 @@ import java.util.Arrays;
  */
 public class 选择排序 {
     public static void main(String[] args) {
-        int[] array = {1,5,2,3,6,2,34,5,345,543,2,2,1,35,64,2,2,0,-98};
+        int[] array = {1,5,2,3,6,2,34,5,345,543,2,2,1,35,64,2,2,12,223,12312,0,-98};
+
         selectSort(array);
         String s = Arrays.toString(array);
         System.out.println(s);

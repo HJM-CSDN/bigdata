@@ -1,4 +1,4 @@
-package org.koudai.spark.day01
+package org.koudai.spark.fang_test
 
 import org.apache.spark.rdd.RDD
 import org.apache.spark.{SparkConf, SparkContext}
