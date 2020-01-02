@@ -7,7 +7,7 @@ import java.sql.Statement;
 
 /**
  * @description jdbc
- * @Author: 韩金铭 1329674322@qq.com
+ * @Author: 林圆圆 1329674322@qq.com
  * @Date: 2019/12/2 14:20
  */
 public class Staff {
@@ -36,26 +36,46 @@ public class Staff {
             resultSql1 = rs.getString("max_dim_staff_last_update");
         }
         System.out.println("第一步sql的返回结果是："+resultSql1);
-//
-//        //ResultSet rs2 = statement.executeQuery("SELECT actor_id, first_name, last_name, last_update FROM sakila.actor WHERE last_update > to_date('"+a+"', 'yyyy-mm-dd hh24:mi:ss')");
-//        ResultSet rs2 = statement2.executeQuery("SELECT actor_id, first_name, last_name, last_update FROM sakila.actor WHERE last_update > '"+resultSql1+"'");
-//
-//
-//
-//        while(rs2.next()){
-//            String actor_id = rs2.getString("actor_id");
-//            String first_name = rs2.getString("first_name");
-//            String last_name = rs2.getString("last_name");
-//            String last_update = rs2.getString("last_update");
-//            System.out.println("actor_id:"+actor_id+" first_name:"+first_name+" last_name:"+last_name+" last_update:"+last_update);
-//
-//
-//            String sql3 = "insert into sakila_dwh.dim_actor (actor_last_update,actor_last_name,actor_first_name,actor_id) values ('"+last_update+"',\""+last_name+"\",\""+first_name+"\","+actor_id+")";
+
+        ResultSet rs2 = statement2.executeQuery("SELECT staff_id" +
+                        ",first_name" +
+                        ",last_name" +
+                        ",address_id" +
+                        ",picture" +
+                        ",email" +
+                        ",store_id" +
+                        ",active" +
+                        ",username" +
+                        ",password" +
+                        ",last_update " +
+                        "FROM sakila.staff WHERE last_update > '"+resultSql1+"'");
+
+        while(rs2.next()){
+            int staff_id = rs2.getInt("staff_id");
+            String first_name = rs2.getString("first_name");
+            String last_name = rs2.getString("last_name");
+            String address_id = rs2.getString("address_id");
+            String picture = rs2.getString("picture");
+            String email = rs2.getString("email");
+            int store_id = rs2.getInt("store_id");
+            String active = rs2.getString("active");
+            String username = rs2.getString("username");
+            String password = rs2.getString("password");
+            String last_update = rs2.getString("last_update");
+            System.out.println("staff_id: "+staff_id+"first_name: "+first_name+"  last_name: "+last_name+"  address_id: "+address_id+"  picture: "+picture+"  email: "+email+"  store_id: "+store_id+"  active: "+active+"  username: "+username+"  password: "+password+"  last_update: "+last_update);
+
+            if (active.equals("1")){
+                active = "Yes";
+            }else if (active.equals("0")){
+                active = "No";
+            }
+
+            String sql3 = "insert into sakila_dwh.dim_staff (actor_last_update,staff_first_name,staff_last_name,staff_id,staff_store_id,staff_version_number,staff_valid_number,staff_active) values ('"+last_update+"',\""+first_name+"\",\""+last_name+"\","+staff_id+")";
 //
 //            System.out.println(sql3);
 //            statement3.executeUpdate(sql3);
-//
-//        }
+
+        }
 
         rs.close();
 //        rs2.close();
