@@ -19,6 +19,11 @@ public class Test {
 //        String r1 = String.format("channel %s", "r1");
 //        System.out.println(r1);
 
+        char[] arr = {'C','h','i','n','a'};
+
+        System.out.println(arr.length);
+
+
 
         int k =4;
         for (int i = 0; i < k; i++) {

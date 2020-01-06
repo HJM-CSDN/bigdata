@@ -70,15 +70,16 @@ public class Staff {
                 active = "No";
             }
 
-            String sql3 = "insert into sakila_dwh.dim_staff (actor_last_update,staff_first_name,staff_last_name,staff_id,staff_store_id,staff_version_number,staff_valid_number,staff_active) values ('"+last_update+"',\""+first_name+"\",\""+last_name+"\","+staff_id+")";
-//
-//            System.out.println(sql3);
-//            statement3.executeUpdate(sql3);
+            String sql3 = "insert into sakila_dwh.dim_staff (staff_last_update,staff_first_name,staff_last_name,staff_id,staff_store_id,staff_version_number,staff_valid_from,staff_valid_through,staff_active) " +
+                    "values (\""+last_update+"\",\""+first_name+"\",\""+last_name+"\","+staff_id+","+store_id+",1,\"1900-01-01\",\"2200-01-01\""+",\""+active+"\")";
+
+            System.out.println(sql3);
+            statement3.executeUpdate(sql3);
 
         }
 
         rs.close();
-//        rs2.close();
+        rs2.close();
         connection.close();
     }
 }
