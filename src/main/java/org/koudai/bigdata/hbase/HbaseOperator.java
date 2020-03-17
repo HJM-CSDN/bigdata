@@ -1,5 +1,6 @@
 package org.koudai.bigdata.hbase;
 
+import static org.koudai.bigdata.hbase.HbaseNSOperator.listNamespaces;
 import static org.koudai.bigdata.hbase.HbaseTableDDLOperator.dropTable;
 import static org.koudai.bigdata.hbase.HbaseTableDDLOperator.transformTableStatus;
 
@@ -14,7 +15,7 @@ public class HbaseOperator {
       //  createNamespace("ns1");
 
         //2.测试列出当前Hbase集群中的所有NS
-    //    listNamespaces();
+        listNamespaces();
 
         //3.测试删除一个空的指定名称的NS
     //    System.out.println("~~~~~~~~~~~~~~~~~~~~~~~~~~");
