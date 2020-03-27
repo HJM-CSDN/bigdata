@@ -1,0 +1,25 @@
+https://www.cnblogs.com/wjw1014/p/10815313.html#_label0_1
+
+第一次上传代码到Github
+
+VCS -> import into Version Control -> Share Project on GitHub
+
+Create API Token -> 添加GitHub密码
+
+非第一次上传到GitHub
+
+提交本地
+Project -> Git -> Commit Directory
+
+push 到 github
+
+Project -> Git -> Repository -> Push
+
+下载Github代码（clone）
+首先选择File->New->Project from Version Control->GitHub
+
+git作为支持分布式版本管理的工具，它管理的库（repository）分为本地库、远程库。
+git commit操作的是本地库，git push操作的是远程库。
+
+git commit是将本地修改过的文件提交到本地库中。
+git push是将本地库中的最新信息发送

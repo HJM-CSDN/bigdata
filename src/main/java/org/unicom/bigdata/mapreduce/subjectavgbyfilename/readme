@@ -1,0 +1,28 @@
+/**
+在map运行时获取被处理数据所在文件的文件名
+ * 数据：
+ * 如chinese.txt 其内容如下
+ * 	小明  78
+ * 	小红  80
+ * 	小白  79
+ *
+ * math.txt:
+ * 	小明  68
+ * 	小红  70
+ * 	小白  69
+ *
+ * enlish.txt:
+ * 	小明  88
+ * 	小红  90
+ * 	小白  89
+ *
+ * 输出：
+ * chinese 79
+ * math 69
+ * english 89
+
+ 	关键代码
+ 	MyMapper类中的
+ 		InputSplit is = context.getInputSplit();
+		String fileName = ((FileSplit)is).getPath().getName();
+ */
