@@ -1,5 +1,0 @@
-本章讲解scala的类和对象
-
-1.ScalaClassConstructor.scala	scala中类构造器  通过Demo.scala来进行构造函数的调用
-2.ScalaClass.scala				scala中类其它语法
-3.nestClass                     scala中嵌套类

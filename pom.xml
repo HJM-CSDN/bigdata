@@ -135,7 +135,7 @@
                     <archive>
                         <manifest>
                             <addClasspath>true</addClasspath>
-                            <mainClass>org.koudai.bigdata.mapreduce.wc.app.WCAPP</mainClass>
+                            <mainClass>org.unicom.bigdata.mapreduce.wc.app.WCAPP</mainClass>
                         </manifest>
                     </archive>
                 </configuration>
@@ -167,7 +167,7 @@
                             <transformers>
                                 <transformer
                                         implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
-                                    <mainClass>org.koudai.bigdata.mapreduce.wc.app.WCAPP</mainClass>
+                                    <mainClass>org.unicom.bigdata.mapreduce.wc.app.WCAPP</mainClass>
                                 </transformer>
                             </transformers>
                         </configuration>
