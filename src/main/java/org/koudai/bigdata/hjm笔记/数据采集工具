@@ -1,9 +1,0 @@
-ELK：ElasticSearch、Logstash、Kibana
-    这三个组件是配合使用的。ES负责数据的存储和索引，Logstash负责数据采集和过滤转换，
-    Kibana则负责图形界面处理。
-
-Logstash是ELK组件中的一个。
-
-Logstash:   Shipper    Broker    Indexer
-Flume:      Source     Channel   Sink
-
